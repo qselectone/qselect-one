@@ -1,0 +1,69 @@
+<!DOCTYPE html><html><head><title>QSelectOne Deploy</title><style>
+body{font-family:-apple-system,sans-serif;background:#0A1628;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.card{background:#fff;border-radius:20px;padding:40px;max-width:520px;width:90%;}
+h1{font-size:22px;color:#0A1628;margin-bottom:8px;}
+p{color:#6b7280;font-size:14px;margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+input{width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;margin-bottom:16px;box-sizing:border-box;font-family:monospace;}
+.st{padding:12px 16px;border-radius:8px;font-size:13px;margin:6px 0;display:none;}
+.inf{background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;}
+.ok{background:#f0fdf4;border:1px solid #86efac;color:#16a34a;}
+.er{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;}
+.bar{height:6px;background:#e5e7eb;border-radius:99px;margin:16px 0;overflow:hidden;}
+.bf{height:100%;width:0%;background:linear-gradient(90deg,#0A1628,#2563A8);border-radius:99px;transition:width .4s;}
+button{width:100%;padding:16px;background:#0A1628;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;}
+button:hover:not([disabled]){background:#2563A8;}
+</style></head><body><div class="card">
+<h1>Deploy QSelectOne AI Worker</h1>
+<p>Paste your credentials below. They go directly to Cloudflare and are never stored.</p>
+<label>Cloudflare Account ID</label>
+<input id="cfa" placeholder="247eb9f6..." />
+<label>Cloudflare API Token</label>
+<input id="cft" type="password" placeholder="Your Cloudflare API token" />
+<label>Anthropic API Key</label>
+<input id="ant" type="password" placeholder="sk-ant-api03-..." />
+<div class="bar"><div class="bf" id="pb"></div></div>
+<div id="s1" class="st inf"></div><div id="s2" class="st inf"></div>
+<div id="s3" class="st inf"></div><div id="s4" class="st inf"></div>
+<div id="er" class="st er"></div>
+<div id="dn" style="display:none;text-align:center;padding:20px 0">
+<div style="font-size:18px;font-weight:700;color:#16a34a">AI Assistant is now live!</div>
+<a href="https://qselect1.github.io/qselect-one" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#0A1628;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Open QSelectOne</a>
+</div>
+<button id="btn" onclick="go()">Deploy Now</button>
+</div><script>
+var WN='qselect-claude-proxy';
+var WS='export default{async fetch(r,e){const c={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type"};if(r.method==="OPTIONS")return new Response(null,{headers:c});try{const b=await r.json();const x=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-version":"2023-06-01","x-api-key":e.ANTHROPIC_API_KEY},body:JSON.stringify(b)});const d=await x.json();return new Response(JSON.stringify(d),{status:x.status,headers:{"Content-Type":"application/json",...c}});}catch(err){return new Response(JSON.stringify({error:err.message}),{status:500,headers:{"Content-Type":"application/json",...c}});}}};';
+function p(n){document.getElementById('pb').style.width=n+'%';}
+function s(id,m,ok){var e=document.getElementById('s'+id);e.className='st '+(ok?'ok':'inf');e.style.display='block';e.textContent=m;}
+function showErr(m){var e=document.getElementById('er');e.style.display='block';e.textContent='Error: '+m;var b=document.getElementById('btn');b.disabled=false;b.textContent='Retry';}
+async function go(){
+var CFA=document.getElementById('cfa').value.trim();
+var CFT=document.getElementById('cft').value.trim();
+var ANT=document.getElementById('ant').value.trim();
+if(!CFA||!CFT||!ANT){showErr('Please fill in all three fields');return;}
+var btn=document.getElementById('btn');btn.disabled=true;btn.textContent='Deploying...';
+document.getElementById('er').style.display='none';
+try{
+s(1,'Deploying Worker to Cloudflare...');p(10);
+var f=new FormData();
+f.append('metadata',new Blob([JSON.stringify({main_module:'worker.js'})],{type:'application/json'}));
+f.append('worker.js',new Blob([WS],{type:'application/javascript+module'}),'worker.js');
+var r1=await fetch('https://api.cloudflare.com/client/v4/accounts/'+CFA+'/workers/scripts/'+WN,{method:'PUT',headers:{Authorization:'Bearer '+CFT},body:f});
+var d1=await r1.json();if(!d1.success)throw new Error(JSON.stringify(d1.errors));
+s(1,'Worker deployed',true);p(35);
+s(2,'Storing API key securely...');
+var r2=await fetch('https://api.cloudflare.com/client/v4/accounts/'+CFA+'/workers/scripts/'+WN+'/secrets',{method:'PUT',headers:{Authorization:'Bearer '+CFT,'Content-Type':'application/json'},body:JSON.stringify({name:'ANTHROPIC_API_KEY',text:ANT,type:'secret_text'})});
+var d2=await r2.json();if(!d2.success)throw new Error(JSON.stringify(d2.errors));
+s(2,'API key stored securely',true);p(60);
+s(3,'Updating platform with Worker URL...');
+var wurl='https://'+WN+'.'+CFA.slice(0,8)+'.workers.dev';
+var code='var CLAUDE_PROXY="'+wurl+'";';
+localStorage.setItem('qselect_worker_url', wurl);
+s(3,'Worker URL saved',true);p(85);
+s(4,'Done!');
+document.getElementById('dn').style.display='block';
+btn.style.display='none';p(100);
+}catch(e){showErr(e.message);}
+}
+</script></body></html>
