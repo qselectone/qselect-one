@@ -498,7 +498,7 @@ pageRenderers['co-dashboard'] = () => `
       <div class="progress-item"><div class="check-circle check-done">✓</div><div style="flex:1">Company Profile</div><span style="color:#6b7280;font-size:12px">›</span></div>
       <div class="progress-item"><div class="check-circle check-done">✓</div><div style="flex:1">Financials</div><span style="color:#6b7280;font-size:12px">›</span></div>
       <div class="progress-item"><div class="check-circle check-done">✓</div><div style="flex:1">Pitch Deck</div><span style="color:#6b7280;font-size:12px">›</span></div>
-      <div class="progress-item"><div class="check-circle check-pending">⏳</div><div style="flex:1">Data Room Upload</div><button class="btn btn-outline btn-sm" onclick="navigateTo('co-upload'); setTimeout(initUploadZone, 200)">Upload</button></div>
+      <div class="progress-item"><div class="check-circle check-pending">⏳</div><div style="flex:1">Data Room Upload</div><button class="btn btn-outline btn-sm" onclick="navigateTo('co-upload'); setTimeout(function(){ if(typeof setupUpload==='undefined') setupUpload(); }, 300); setTimeout(initUploadZone, 200)">Upload</button></div>
     </div>
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-bottom:4px">Revenue Growth</h3>
@@ -827,7 +827,7 @@ pageRenderers['co-upload'] = () => `
           <input type="file" id="doc-upload" style="display:none" multiple>
           <div style="text-align:center">
             <div style="margin-bottom:8px">Drag files here <em>or</em> click to browse</div>
-            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()" onclick="document.getElementById('upload-file-input').click()">Browse Files</button><input type="file" id="upload-file-input" multiple style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.pptx,.ppt,.txt"><div id="upload-status" style="margin-top:12px"></div>
+            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()" onclick="document.getElementById('upload-file-input').click()" onclick="document.getElementById('doc-upload').click()">Browse Files</button><input type="file" id="upload-file-input" multiple style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.pptx,.ppt,.txt"><div id="upload-status" style="margin-top:12px"></div>
             <div class="text-muted" style="margin-top:8px;font-size:11px">PDF · Excel · Word · PowerPoint · CSV · DOCX</div>
           </div>
         </div>
@@ -2803,7 +2803,7 @@ pageRenderers['co-upload'] = () => `
           <input type="file" id="doc-upload" style="display:none" multiple>
           <div style="text-align:center">
             <div style="margin-bottom:8px">Drag files here <em>or</em> click to browse</div>
-            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()">Browse Files</button>
+            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()" onclick="document.getElementById('doc-upload').click()">Browse Files</button>
             <div class="text-muted" style="margin-top:8px;font-size:11px">PDF · Excel · Word · PowerPoint · CSV · DOCX</div>
           </div>
         </div>
@@ -4466,6 +4466,141 @@ async function sendCoChat() {
   }
   hist.scrollTop = hist.scrollHeight;
 }
+
+
+// UPLOAD HANDLER
+(function setupUpload() {
+  var WORKER_URL = 'https://mute-morning-93ed.james-mcswiggan.workers.dev';
+  
+  function getOrCreateInput() {
+    var inp = document.getElementById('doc-upload');
+    if (!inp) {
+      inp = document.createElement('input');
+      inp.type = 'file';
+      inp.id = 'doc-upload';
+      inp.multiple = true;
+      inp.style.display = 'none';
+      document.body.appendChild(inp);
+    }
+    inp.accept = '';
+    inp.removeAttribute('accept');
+    return inp;
+  }
+
+  function getOrCreateStatus() {
+    var el = document.getElementById('upload-status');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'upload-status';
+      el.style.cssText = 'margin:16px 0';
+      var zone = document.querySelector('[id*="upload"]') || document.querySelector('.card');
+      if (zone && zone.parentNode) zone.parentNode.insertBefore(el, zone.nextSibling);
+      else document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function addStatus(el, msg, type) {
+    var colors = {info:'#f0f9ff|#bae6fd|#0369a1', ok:'#f0fdf4|#86efac|#16a34a', warn:'#fff7ed|#fed7aa|#d97706'};
+    var c = (colors[type]||colors.info).split('|');
+    el.innerHTML += "<div style='padding:10px 14px;background:"+c[0]+";border:1px solid "+c[1]+";border-radius:8px;font-size:13px;color:"+c[2]+";margin-bottom:6px'>"+msg+"</div>";
+  }
+
+  async function processFiles(files) {
+    var statusEl = getOrCreateStatus();
+    statusEl.innerHTML = '';
+    
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+      addStatus(statusEl, '<strong>📄 ' + file.name + '</strong> (' + (file.size/1024).toFixed(0) + ' KB) — Reading...', 'info');
+      
+      var content = await new Promise(function(res) {
+        var reader = new FileReader();
+        reader.onload = function(e) { res(e.target.result || ''); };
+        if (file.name.match(/\.(csv|txt|json|md)$/i)) reader.readAsText(file);
+        else reader.readAsDataURL(file);
+      });
+
+      addStatus(statusEl, '🤖 AI analysing <strong>' + file.name + '</strong>...', 'info');
+
+      try {
+        var textContent = (typeof content === 'string' && content.startsWith('data:'))
+          ? 'File: ' + file.name + ' (type: ' + file.type + ', size: ' + (file.size/1024).toFixed(0) + 'KB). This is a binary file - extract any company data visible in the filename or infer from file type.'
+          : content.slice(0, 9000);
+
+        var resp = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 800,
+            system: 'You are a financial data extraction AI. Extract structured company data from documents and return ONLY valid JSON. If you cannot extract data from a binary file, return an empty JSON object {}.',
+            messages: [{role: 'user', content: 'Extract company data. Return ONLY a JSON object with any keys you find: company_name, sector, stage, location, revenue, revenue_growth, ebitda, gross_margin, runway_months, employees, countries, raise_target, capital_raised, clients (array of strings), description, founded_year, website.\n\nDocument (' + file.name + '):\n' + textContent}]
+          })
+        });
+
+        if (!resp.ok) throw new Error('API error ' + resp.status);
+        var data = await resp.json();
+        var text = data.content && data.content[0] ? data.content[0].text : null;
+        if (!text) throw new Error('No response from AI');
+
+        var extracted = JSON.parse(text.replace(/```json|```/g, '').trim());
+        var keys = Object.keys(extracted).filter(function(k){ return extracted[k]; });
+
+        if (keys.length > 0) {
+          var co = DB.companies[0];
+          if (extracted.company_name) co.name = extracted.company_name;
+          if (extracted.sector) co.sector = extracted.sector;
+          if (extracted.stage) co.stage = extracted.stage;
+          if (extracted.location) co.location = extracted.location;
+          if (extracted.revenue) co.revenue = extracted.revenue;
+          if (extracted.revenue_growth) co.growth = extracted.revenue_growth;
+          if (extracted.ebitda) co.ebitda = extracted.ebitda;
+          if (extracted.gross_margin) co.grossMargin = extracted.gross_margin;
+          if (extracted.runway_months) co.runway = extracted.runway_months + ' months';
+          if (extracted.employees) co.employees = parseInt(extracted.employees) || co.employees;
+          if (extracted.countries) co.countries = parseInt(extracted.countries) || co.countries;
+          if (extracted.raise_target) co.raise = extracted.raise_target;
+          if (extracted.capital_raised) co.capitalRaised = extracted.capital_raised;
+          if (extracted.clients) co.clients = Array.isArray(extracted.clients) ? extracted.clients : [extracted.clients];
+          if (extracted.description) co.description = extracted.description;
+          localStorage.setItem('qselect_company_data', JSON.stringify(co));
+          addStatus(statusEl, '✓ <strong>' + file.name + '</strong> — Extracted: ' + keys.join(', '), 'ok');
+        } else {
+          addStatus(statusEl, '✓ <strong>' + file.name + '</strong> — Saved (no structured data found)', 'warn');
+        }
+      } catch(e) {
+        addStatus(statusEl, '⚠ <strong>' + file.name + '</strong> — ' + e.message, 'warn');
+      }
+    }
+
+    addStatus(statusEl, '✅ <strong>All done! Updating dashboards...</strong>', 'ok');
+    setTimeout(function() { navigateTo('co-dashboard'); }, 1500);
+  }
+
+  // Wire up input
+  var inp = getOrCreateInput();
+  inp.onchange = function() { if (inp.files.length) processFiles(inp.files); };
+
+  // Wire up drop zone
+  var zone = document.querySelector('.upload-zone');
+  if (zone) {
+    zone.ondragover = function(e) { e.preventDefault(); zone.style.borderColor='#2563A8'; zone.style.background='#eff6ff'; };
+    zone.ondragleave = function() { zone.style.borderColor=''; zone.style.background=''; };
+    zone.ondrop = function(e) { e.preventDefault(); zone.style.borderColor=''; zone.style.background=''; if(e.dataTransfer.files.length) processFiles(e.dataTransfer.files); };
+  }
+
+  // Wire Browse Files buttons
+  document.querySelectorAll('button').forEach(function(btn) {
+    if (btn.textContent.trim() === 'Browse Files') {
+      btn.onclick = function(e) { e.preventDefault(); e.stopPropagation(); getOrCreateInput().click(); };
+    }
+  });
+
+  window._uploadReady = true;
+  console.log('Upload system ready');
+})();
+
 </script>
 </body>
 </html>
