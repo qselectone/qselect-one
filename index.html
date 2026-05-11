@@ -4439,6 +4439,33 @@ navigateTo = function(page) {
     }
   }, 300);
 };
+
+var CLAUDE_PROXY = "https://mute-morning-93ed.james-mcswiggan.workers.dev";
+async function callClaude(sys, usr, tok) {
+  var r = await fetch(CLAUDE_PROXY, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens: tok||1000, system: sys, messages:[{role:"user",content:usr}]}) });
+  if (!r.ok) throw new Error("Claude error " + r.status);
+  var d = await r.json(); return d.content && d.content[0] ? d.content[0].text : "";
+}
+async function sendCoChat() {
+  var inp = document.getElementById("co-chat-input"); if (!inp || !inp.value.trim()) return;
+  var msg = inp.value; inp.value = "";
+  var hist = document.getElementById("co-chat-history");
+  hist.innerHTML += "<div style='text-align:right;margin-bottom:12px'><div class='msg-bubble msg-sent'>" + msg + "</div></div>";
+  var id = "t" + Date.now();
+  hist.innerHTML += "<div id='" + id + "' style='margin-bottom:12px'><div class='text-muted' style='margin-bottom:4px'>AI Investment Assistant</div><div class='msg-bubble msg-recv' style='color:#6b7280;font-style:italic'>Thinking...</div></div>";
+  hist.scrollTop = hist.scrollHeight;
+  var co = DB.companies[0];
+  var sys = "You are the AI Investment Assistant for QSelectOne. Company: " + co.name + ". Sector: " + co.sector + ". Stage: " + co.stage + ". Revenue: " + co.revenue + " (" + co.growth + " YoY). EBITDA: " + co.ebitda + ". Gross Margin: " + co.grossMargin + ". Runway: " + co.runway + ". Employees: " + co.employees + ". Raise: " + co.raise + ". Clients: " + (co.clients ? co.clients.join(", ") : "N/A") + ". Description: " + co.description + ". Top investors: " + DB.investors.slice(0,3).map(function(i){return i.name;}).join(", ") + ". Be specific and authoritative.";
+  try {
+    var answer = await callClaude(sys, msg, 800);
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = "<div class='text-muted' style='margin-bottom:4px'>AI Investment Assistant</div><div class='msg-bubble msg-recv' style='white-space:pre-wrap'>" + answer + "</div>";
+  } catch(e) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = "<div class='text-muted' style='margin-bottom:4px'>AI Investment Assistant</div><div class='msg-bubble msg-recv' style='color:#dc2626'>Error: " + e.message + "</div>";
+  }
+  hist.scrollTop = hist.scrollHeight;
+}
 </script>
 </body>
 </html>
