@@ -484,95 +484,72 @@ const pageRenderers = {};
 
 // ---- COMPANY DASHBOARD ----
 pageRenderers['co-dashboard'] = () => {
+    const C = { cloud: '\u2601\uFE0F', rangle: '\u203A', check: '\u2713', hourglass: '\u23F3', chart: '\u{1F4CA}', clipboard: '\u{1F4CB}', page: '\u{1F4C4}', euro: '\u20AC', middot: '\u00B7', endash: '\u2013' };
     const co = DB.companies[0];
     const hist = JSON.parse(localStorage.getItem('qselect_upload_history') || '[]');
     const f = (v, d) => (v === null || v === undefined || v === '') ? d : v;
     const recentDocs = hist.slice(0, 3);
-    const docRow = (h) => `<div class="file-row" onclick="navigateTo('co-documents')"><div class="file-icon file-${h.name.endsWith('.xlsx')||h.name.endsWith('.csv')?'xlsx':'pdf'}">${h.name.endsWith('.xlsx')||h.name.endsWith('.csv')?'ð':'ð'}</div>${h.name}<span style="margin-left:auto;font-size:11px;color:#6b7280">âº</span></div>`;
+    const docRow = (h) => '<div class="file-row" onclick="navigateTo(\'co-documents\')"><div class="file-icon file-' + (h.name.endsWith('.xlsx')||h.name.endsWith('.csv')?'xlsx':'pdf') + '">' + (h.name.endsWith('.xlsx')||h.name.endsWith('.csv')?C.chart:C.page) + '</div>' + h.name + '<span style="margin-left:auto;font-size:11px;color:#6b7280">' + C.rangle + '</span></div>';
     const highlights = (co.highlights && co.highlights.length) ? co.highlights : ['Strong revenue growth','Expanding international market','Recurring revenue model','High gross margins'];
-    return `
-<div class="page-header"><h1>Welcome to ${f(co.name,'Your')} Dashboard</h1><p>Monitor Your Fundraising Progress</p></div>
-<div class="layout-main">
-  <div class="col-main">
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Upload Your Company Files</h3>
-      <div class="upload-zone" id="upload-drop-zone" ondragover="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" onclick="triggerUpload()">
-        <input type="file" id="pitchdeck-upload" style="display:none" accept="">
-        âï¸ <strong>Drag & Drop Files or</strong> <button class="btn btn-blue btn-sm" style="margin-left:8px" onclick="event.stopPropagation();triggerUpload()">Browse + Upload</button>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Submission Progress</h3>
-      <div class="progress-item"><div class="check-circle check-done">â</div><div style="flex:1">Company Profile</div><span style="color:#6b7280;font-size:12px">âº</span></div>
-      <div class="progress-item"><div class="check-circle check-done">â</div><div style="flex:1">Financials</div><span style="color:#6b7280;font-size:12px">âº</span></div>
-      <div class="progress-item"><div class="check-circle check-done">â</div><div style="flex:1">Pitch Deck</div><span style="color:#6b7280;font-size:12px">âº</span></div>
-      <div class="progress-item"><div class="check-circle check-pending">â³</div><div style="flex:1">Data Room Upload</div><button class="btn btn-outline btn-sm" onclick="navigateTo('co-upload'); setTimeout(initUploadZone, 200)">Upload</button></div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:4px">Revenue Growth</h3>
-      <div class="chart-container"><canvas id="chart-revenue"></canvas></div>
-      <div class="flex gap-12" style="margin-top:12px;flex-wrap:wrap">
-        <span class="text-muted">CAGR <strong>${f(co.cagr,'58%')}</strong></span>
-        <span class="text-muted">Gross Margin <strong>${f(co.grossMargin,'61%')}</strong></span>
-        <span class="text-muted">Cash Runway <strong>${f(co.runway,'18 months')}</strong></span>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <h3 style="margin-bottom:12px">Quick Actions</h3>
-        <div class="file-row" onclick="navigateTo('co-financials')">ð Upload Financials <span style="margin-left:auto">âº</span></div>
-        <div class="file-row" onclick="navigateTo('co-pitchdeck')">ð Update Pitch Deck <span style="margin-left:auto">âº</span></div>
-        <div class="file-row" onclick="navigateTo('co-documents')">ð Add Documents <span style="margin-left:auto">âº</span></div>
-      </div>
-      <div class="card">
-        <h3 style="margin-bottom:12px">Investor Matches</h3>
-        ${DB.investors.slice(0,3).map(inv => `<div class="file-row" onclick="navigateTo('co-investor-matches')"><span style="flex:1">${inv.name}</span><span class="text-muted">${inv.ticketRange.split('â')[0]}</span></div>`).join('')}
-      </div>
-    </div>
-  </div>
-  <div class="col-side">
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:14px">Capital Raise Summary</h3>
-      <div class="grid-2" style="gap:12px">
-        <div class="stat-card"><div class="stat-label">Raised to Date</div><div class="stat-value">${f(co.capitalRaised,'â¬3.2M')}</div></div>
-        <div class="stat-card"><div class="stat-label">Target Raise</div><div class="stat-value">${f(co.raise,'â¬10M')}</div></div>
-        <div class="stat-card"><div class="stat-label">Pre-Money Val</div><div class="stat-value">${f(co.preMoneyVal,'â¬40M')}</div></div>
-        <div class="stat-card"><div class="stat-label">Min Ticket</div><div class="stat-value">${f(co.minTicket,'â¬250k')}</div></div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:14px">Key Metrics</h3>
-      <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:10px">
-        <div class="stat-card" style="flex:1"><div class="stat-label">Revenue</div><div class="stat-value text-green">${f(co.revenue,'â¬4.8M')}</div><div class="stat-sub">${f(co.growth,'+72%')} YoY</div></div>
-        <div class="stat-card" style="flex:1"><div class="stat-label">EBITDA</div><div class="stat-value">${f(co.ebitda,'â¬1.0M')}</div><div class="stat-sub">${f(co.ebitdaMargin,'21%')} margin</div></div>
-        <div class="stat-card" style="flex:1"><div class="stat-label">Projects</div><div class="stat-value">${f(co.projects,'38')}</div><div class="stat-sub">Active</div></div>
-      </div>
-      <div class="text-muted" style="font-size:12px">CAGR ${f(co.cagr,'58%')} Â· Gross Margin ${f(co.grossMargin,'61%')} Â· Cash Runway ${f(co.runway,'18 months')}</div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="grid-2" style="gap:12px">
-        <div>
-          <h3 style="margin-bottom:8px;font-size:13px">Investment Highlights</h3>
-          <ul style="font-size:12px;color:#374151;padding-left:16px;line-height:1.8">
-            ${highlights.map(h => '<li>' + h + '</li>').join('')}
-          </ul>
-        </div>
-        <div>
-          <h3 style="margin-bottom:8px;font-size:13px">Use of Funds</h3>
-          <div class="chart-container" style="height:120px"><canvas id="chart-uof"></canvas></div>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <h3 style="margin-bottom:12px">Recent Documents</h3>
-      ${recentDocs.length ? recentDocs.map(docRow).join('') : '<div class="text-muted" style="font-size:12px">No documents uploaded yet</div>'}
-    </div>
-  </div>
-</div>`;
+    return '<div class="page-header"><h1>Welcome to ' + f(co.name,'Your') + ' Dashboard</h1><p>Monitor Your Fundraising Progress</p></div>'
+      + '<div class="layout-main"><div class="col-main">'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Upload Your Company Files</h3>'
+      + '<div class="upload-zone" id="upload-drop-zone" ondragover="this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" onclick="triggerUpload()">'
+      + '<input type="file" id="pitchdeck-upload" style="display:none" accept="">'
+      + C.cloud + ' <strong>Drag & Drop Files or</strong> <button class="btn btn-blue btn-sm" style="margin-left:8px" onclick="event.stopPropagation();triggerUpload()">Browse + Upload</button>'
+      + '</div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Submission Progress</h3>'
+      + '<div class="progress-item"><div class="check-circle check-done">' + C.check + '</div><div style="flex:1">Company Profile</div><span style="color:#6b7280;font-size:12px">' + C.rangle + '</span></div>'
+      + '<div class="progress-item"><div class="check-circle check-done">' + C.check + '</div><div style="flex:1">Financials</div><span style="color:#6b7280;font-size:12px">' + C.rangle + '</span></div>'
+      + '<div class="progress-item"><div class="check-circle check-done">' + C.check + '</div><div style="flex:1">Pitch Deck</div><span style="color:#6b7280;font-size:12px">' + C.rangle + '</span></div>'
+      + '<div class="progress-item"><div class="check-circle check-pending">' + C.hourglass + '</div><div style="flex:1">Data Room Upload</div><button class="btn btn-outline btn-sm" onclick="navigateTo(\'co-upload\'); setTimeout(initUploadZone, 200)">Upload</button></div>'
+      + '</div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:4px">Revenue Growth</h3>'
+      + '<div class="chart-container"><canvas id="chart-revenue"></canvas></div>'
+      + '<div class="flex gap-12" style="margin-top:12px;flex-wrap:wrap">'
+      + '<span class="text-muted">CAGR <strong>' + f(co.cagr,'58%') + '</strong></span>'
+      + '<span class="text-muted">Gross Margin <strong>' + f(co.grossMargin,'61%') + '</strong></span>'
+      + '<span class="text-muted">Cash Runway <strong>' + f(co.runway,'18 months') + '</strong></span>'
+      + '</div></div>'
+      + '<div class="grid-2"><div class="card"><h3 style="margin-bottom:12px">Quick Actions</h3>'
+      + '<div class="file-row" onclick="navigateTo(\'co-financials\')">' + C.chart + ' Upload Financials <span style="margin-left:auto">' + C.rangle + '</span></div>'
+      + '<div class="file-row" onclick="navigateTo(\'co-pitchdeck\')">' + C.clipboard + ' Update Pitch Deck <span style="margin-left:auto">' + C.rangle + '</span></div>'
+      + '<div class="file-row" onclick="navigateTo(\'co-documents\')">' + C.page + ' Add Documents <span style="margin-left:auto">' + C.rangle + '</span></div>'
+      + '</div><div class="card"><h3 style="margin-bottom:12px">Investor Matches</h3>'
+      + DB.investors.slice(0,3).map(function(inv){ return '<div class="file-row" onclick="navigateTo(\'co-investor-matches\')"><span style="flex:1">' + inv.name + '</span><span class="text-muted">' + inv.ticketRange.split(C.endash)[0] + '</span></div>'; }).join('')
+      + '</div></div></div>'
+      + '<div class="col-side">'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:14px">Capital Raise Summary</h3>'
+      + '<div class="grid-2" style="gap:12px">'
+      + '<div class="stat-card"><div class="stat-label">Raised to Date</div><div class="stat-value">' + f(co.capitalRaised, C.euro+'3.2M') + '</div></div>'
+      + '<div class="stat-card"><div class="stat-label">Target Raise</div><div class="stat-value">' + f(co.raise, C.euro+'10M') + '</div></div>'
+      + '<div class="stat-card"><div class="stat-label">Pre-Money Val</div><div class="stat-value">' + f(co.preMoneyVal, C.euro+'40M') + '</div></div>'
+      + '<div class="stat-card"><div class="stat-label">Min Ticket</div><div class="stat-value">' + f(co.minTicket, C.euro+'250k') + '</div></div>'
+      + '</div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:14px">Key Metrics</h3>'
+      + '<div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:10px">'
+      + '<div class="stat-card" style="flex:1"><div class="stat-label">Revenue</div><div class="stat-value text-green">' + f(co.revenue, C.euro+'4.8M') + '</div><div class="stat-sub">' + f(co.growth,'+72%') + ' YoY</div></div>'
+      + '<div class="stat-card" style="flex:1"><div class="stat-label">EBITDA</div><div class="stat-value">' + f(co.ebitda, C.euro+'1.0M') + '</div><div class="stat-sub">' + f(co.ebitdaMargin,'21%') + ' margin</div></div>'
+      + '<div class="stat-card" style="flex:1"><div class="stat-label">Projects</div><div class="stat-value">' + f(co.projects,'38') + '</div><div class="stat-sub">Active</div></div>'
+      + '</div>'
+      + '<div class="text-muted" style="font-size:12px">CAGR ' + f(co.cagr,'58%') + ' ' + C.middot + ' Gross Margin ' + f(co.grossMargin,'61%') + ' ' + C.middot + ' Cash Runway ' + f(co.runway,'18 months') + '</div>'
+      + '</div>'
+      + '<div class="card" style="margin-bottom:16px"><div class="grid-2" style="gap:12px"><div>'
+      + '<h3 style="margin-bottom:8px;font-size:13px">Investment Highlights</h3>'
+      + '<ul style="font-size:12px;color:#374151;padding-left:16px;line-height:1.8">'
+      + highlights.map(function(h){ return '<li>' + h + '</li>'; }).join('')
+      + '</ul></div><div>'
+      + '<h3 style="margin-bottom:8px;font-size:13px">Use of Funds</h3>'
+      + '<div class="chart-container" style="height:120px"><canvas id="chart-uof"></canvas></div>'
+      + '</div></div></div>'
+      + '<div class="card"><h3 style="margin-bottom:12px">Recent Documents</h3>'
+      + (recentDocs.length ? recentDocs.map(docRow).join('') : '<div class="text-muted" style="font-size:12px">No documents uploaded yet</div>')
+      + '</div></div></div>';
   };
 
 // ---- COMPANY PROFILE ----
 pageRenderers['co-profile'] = () => {
+    const C = { person: '\u{1F464}', building: '\u{1F3E2}', checkBig: '\u2705' };
     const co = DB.companies[0];
     const f = (v, d) => (v === null || v === undefined || v === '') ? d : v;
     const team = (co.team && co.team.length) ? co.team : [];
@@ -580,177 +557,105 @@ pageRenderers['co-profile'] = () => {
     const certs = (co.certifications && co.certifications.length) ? co.certifications : [];
     const marketPos = (co.marketPosition && co.marketPosition.length) ? co.marketPosition : ['Emerging market infrastructure','Governments and institutional clients','AI-powered optimisation','Engagement progress projects'];
     const clientsText = (co.clients && co.clients.length) ? co.clients.join(', ') : 'National Grid Kenya';
-
-    return `
-<div class="page-header"><h1>ð¢ ${f(co.name,'Company Profile')}</h1><p>${f(co.description,'Investee company overview')}</p></div>
-<div class="layout-main">
-  <div class="col-main">
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:14px">Management Team</h3>
-      <div class="grid-2">
-        ${team.length ? team.map(p => `
-        <div class="card-sm">
-          <div class="person-card">
-            <div class="person-avatar">ð¤</div>
-            <div><div class="fw-bold">${p.name}</div><div class="tag tag-blue" style="margin:4px 0">${p.role}</div><div class="text-muted">${p.bio || ''}</div></div>
-          </div>
-        </div>`).join('') : '<div class="text-muted" style="font-size:13px">Team data not yet uploaded</div>'}
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:14px">Board and Advisors</h3>
-      <div class="grid-2">
-        <div class="card-sm"><div class="person-card"><div class="person-avatar">ð¤</div><div><div class="fw-bold">David Harper</div><div class="text-muted">Chairman</div><div class="text-muted" style="margin-top:4px">Former CEO Global Infrastructure Partners</div></div></div></div>
-        <div class="card-sm"><div class="person-card"><div class="person-avatar">ð¤</div><div><div class="fw-bold">Dr. Amina Bello</div><div class="text-muted">Advisor</div><div class="text-muted" style="margin-top:4px">Former Nigerian Energy Commission Director</div></div></div></div>
-        <div class="card-sm"><div class="person-card"><div class="person-avatar">ð¤</div><div><div class="fw-bold">Michael Tran</div><div class="text-muted">Advisor</div><div class="text-muted" style="margin-top:4px">Former BlackRock Infrastructure Fund</div></div></div></div>
-      </div>
-    </div>
-    <div class="card">
-      <h3 style="margin-bottom:12px">Shareholding Structure</h3>
-      <table id="shareholder-table">
-        <thead><tr><th>Shareholder</th><th>Type</th><th>Ownership %</th></tr></thead>
-        <tbody>
-          ${shareholders.length ? shareholders.map(s => `<tr><td>${s.name}</td><td>${s.type}</td><td><strong>${s.pct}</strong></td></tr>`).join('') : '<tr><td colspan="3" class="text-muted">No shareholder data uploaded yet</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <div class="col-side">
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Company Overview</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
-        <div><div class="text-muted">Sector</div><div class="fw-bold">${f(co.sector,'â')}</div></div>
-        <div><div class="text-muted">Founded</div><div class="fw-bold">${f(co.founded,'2021')}</div></div>
-        <div><div class="text-muted">Stage</div><div class="fw-bold">${f(co.stage,'â')}</div></div>
-        <div><div class="text-muted">HQ</div><div class="fw-bold">${f(co.location,'â')}</div></div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Key Company Stats</h3>
-      <div style="font-size:13px">
-        <div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Employees</span><strong>${f(co.employees,'â')}</strong></div>
-        <div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Annual Revenue</span><strong>${f(co.revenue,'â')}</strong></div>
-        <div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Countries</span><strong>${f(co.countries,'â')}</strong></div>
-        <div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Capital Raised</span><strong>${f(co.capitalRaised,'â')}</strong></div>
-        <div class="flex justify-between" style="padding:7px 0"><span class="text-muted">Major Clients</span><strong style="font-size:11px">${clientsText}</strong></div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:10px">Market Position</h3>
-      <ul style="font-size:12px;line-height:2;padding-left:14px">
-        ${marketPos.map(m => '<li>' + m + '</li>').join('')}
-      </ul>
-    </div>
-    <div class="card">
-      <h3 style="margin-bottom:10px">Certifications</h3>
-      ${certs.length ? certs.map(c => `<div class="check-list-item">â ${c}</div>`).join('') : '<div class="text-muted" style="font-size:12px">None uploaded yet</div>'}
-    </div>
-  </div>
-</div>`;
+    return '<div class="page-header"><h1>' + C.building + ' ' + f(co.name,'Company Profile') + '</h1><p>' + f(co.description,'Investee company overview') + '</p></div>'
+      + '<div class="layout-main"><div class="col-main">'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:14px">Management Team</h3><div class="grid-2">'
+      + (team.length ? team.map(function(p){ return '<div class="card-sm"><div class="person-card"><div class="person-avatar">' + C.person + '</div><div><div class="fw-bold">' + p.name + '</div><div class="tag tag-blue" style="margin:4px 0">' + p.role + '</div><div class="text-muted">' + (p.bio || '') + '</div></div></div></div>'; }).join('') : '<div class="text-muted" style="font-size:13px">Team data not yet uploaded</div>')
+      + '</div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:14px">Board and Advisors</h3><div class="grid-2">'
+      + '<div class="card-sm"><div class="person-card"><div class="person-avatar">' + C.person + '</div><div><div class="fw-bold">David Harper</div><div class="text-muted">Chairman</div><div class="text-muted" style="margin-top:4px">Former CEO Global Infrastructure Partners</div></div></div></div>'
+      + '<div class="card-sm"><div class="person-card"><div class="person-avatar">' + C.person + '</div><div><div class="fw-bold">Dr. Amina Bello</div><div class="text-muted">Advisor</div><div class="text-muted" style="margin-top:4px">Former Nigerian Energy Commission Director</div></div></div></div>'
+      + '<div class="card-sm"><div class="person-card"><div class="person-avatar">' + C.person + '</div><div><div class="fw-bold">Michael Tran</div><div class="text-muted">Advisor</div><div class="text-muted" style="margin-top:4px">Former BlackRock Infrastructure Fund</div></div></div></div>'
+      + '</div></div>'
+      + '<div class="card"><h3 style="margin-bottom:12px">Shareholding Structure</h3>'
+      + '<table id="shareholder-table"><thead><tr><th>Shareholder</th><th>Type</th><th>Ownership %</th></tr></thead><tbody>'
+      + (shareholders.length ? shareholders.map(function(s){ return '<tr><td>' + s.name + '</td><td>' + s.type + '</td><td><strong>' + s.pct + '</strong></td></tr>'; }).join('') : '<tr><td colspan="3" class="text-muted">No shareholder data uploaded yet</td></tr>')
+      + '</tbody></table></div></div>'
+      + '<div class="col-side">'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Company Overview</h3>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">'
+      + '<div><div class="text-muted">Sector</div><div class="fw-bold">' + f(co.sector,'\u2014') + '</div></div>'
+      + '<div><div class="text-muted">Founded</div><div class="fw-bold">' + f(co.founded,'2021') + '</div></div>'
+      + '<div><div class="text-muted">Stage</div><div class="fw-bold">' + f(co.stage,'\u2014') + '</div></div>'
+      + '<div><div class="text-muted">HQ</div><div class="fw-bold">' + f(co.location,'\u2014') + '</div></div>'
+      + '</div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Key Company Stats</h3><div style="font-size:13px">'
+      + '<div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Employees</span><strong>' + f(co.employees,'\u2014') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Annual Revenue</span><strong>' + f(co.revenue,'\u2014') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Countries</span><strong>' + f(co.countries,'\u2014') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:7px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">Capital Raised</span><strong>' + f(co.capitalRaised,'\u2014') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:7px 0"><span class="text-muted">Major Clients</span><strong style="font-size:11px">' + clientsText + '</strong></div>'
+      + '</div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px">Market Position</h3>'
+      + '<ul style="font-size:12px;line-height:2;padding-left:14px">' + marketPos.map(function(m){ return '<li>' + m + '</li>'; }).join('') + '</ul></div>'
+      + '<div class="card"><h3 style="margin-bottom:10px">Certifications</h3>'
+      + (certs.length ? certs.map(function(c){ return '<div class="check-list-item">' + C.checkBig + ' ' + c + '</div>'; }).join('') : '<div class="text-muted" style="font-size:12px">None uploaded yet</div>')
+      + '</div></div></div>';
   };
 
 // ---- FINANCIAL METRICS ----
 pageRenderers['co-financials'] = () => {
+    const C = { chartUp: '\u{1F4C8}', chart: '\u{1F4CA}', page: '\u{1F4C4}', rangle: '\u203A', euro: '\u20AC' };
     const co = DB.companies[0];
     const f = (v, d) => (v === null || v === undefined || v === '') ? d : v;
+    const E = C.euro;
     const revBreakdown = (co.revenueBreakdown && co.revenueBreakdown.length) ? co.revenueBreakdown :
-      [['Product Revenue','â¬2.5M',70],['Service Revenue','â¬1.2M',48],['Subscription/Recurring','â¬1.1M',40],['Other Revenue','â¬0.1M',8]];
+      [['Product Revenue', E+'2.5M', 70],['Service Revenue', E+'1.2M', 48],['Subscription/Recurring', E+'1.1M', 40],['Other Revenue', E+'0.1M', 8]];
     const opex = (co.opex && co.opex.length) ? co.opex :
-      [['Personnel','â¬1.2M'],['Technology Dev','â¬50k'],['Sales & Marketing','â¬420k'],['Operations','â¬430k']];
+      [['Personnel', E+'1.2M'],['Technology Dev', E+'50k'],['Sales & Marketing', E+'420k'],['Operations', E+'430k']];
     const fin = co.financials || {};
     const forecast = (co.forecast && co.forecast.length) ? co.forecast : [
-      { year: '2025', revenue: f(fin.y1,'â¬3.5M'), ebitda: 'â¬2.1M', netProfit: 'â¬2.9M' },
-      { year: '2026', revenue: f(fin.y2,'â¬14.2M'), ebitda: 'â¬4.5M', netProfit: 'â¬3.1M' },
-      { year: '2027', revenue: f(fin.y3,'â¬23.8M'), ebitda: 'â¬8.3M', netProfit: 'â¬5.9M' }
+      { year: '2025', revenue: f(fin.y1, E+'3.5M'), ebitda: E+'2.1M', netProfit: E+'2.9M' },
+      { year: '2026', revenue: f(fin.y2, E+'14.2M'), ebitda: E+'4.5M', netProfit: E+'3.1M' },
+      { year: '2027', revenue: f(fin.y3, E+'23.8M'), ebitda: E+'8.3M', netProfit: E+'5.9M' }
     ];
-
-    return `
-<div class="page-header"><h1>ð Financial Metrics</h1><p>Financial reports at a glance</p></div>
-<div class="layout-main">
-  <div class="col-main">
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Financial Summary</h3>
-      <div class="grid-4">
-        <div class="stat-card"><div class="stat-label">Revenue (LTM)</div><div class="stat-value">${f(co.revenue,'â')}</div><div class="stat-sub text-green">${f(co.growth,'+72%')}</div></div>
-        <div class="stat-card"><div class="stat-label">EBITDA</div><div class="stat-value">${f(co.ebitda,'â')}</div><div class="stat-sub">${f(co.ebitdaMargin,'21%')} margin</div></div>
-        <div class="stat-card"><div class="stat-label">Gross Margin</div><div class="stat-value">${f(co.grossMargin,'â')}</div></div>
-        <div class="stat-card"><div class="stat-label">Cash Runway</div><div class="stat-value">${f(co.runway,'18 mo')}</div></div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Revenue Breakdown</h3>
-      ${revBreakdown.map(r => {
-        const label = r[0], val = r[1], pct = r[2];
-        return `
-      <div style="margin-bottom:10px">
-        <div class="flex justify-between" style="font-size:13px;margin-bottom:4px"><span>${label}</span><span class="fw-bold">${val}</span></div>
-        <div style="height:8px;background:#e5e7eb;border-radius:4px"><div style="height:8px;background:#2563a8;border-radius:4px;width:${pct}%"></div></div>
-      </div>`;
-      }).join('')}
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Operating Expenses</h3>
-      <div class="grid-2">
-        <div class="chart-container" style="height:160px"><canvas id="chart-opex"></canvas></div>
-        <div style="font-size:12px;padding:8px">
-          ${opex.map(o => `<div class="flex justify-between" style="padding:5px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">${o[0]}</span><span class="fw-bold">${o[1]}</span></div>`).join('')}
-        </div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Financial Documents</h3>
-      <div class="file-row"><div class="file-icon file-pdf">ð</div><div style="flex:1">3 Year Financial Statements</div><span>âº</span></div>
-      <div class="file-row"><div class="file-icon file-xlsx">ð</div><div style="flex:1">Financial Model</div><span>âº</span></div>
-      <div class="file-row"><div class="file-icon file-xlsx">ð</div><div style="flex:1">Unit Economics Model</div><span>âº</span></div>
-    </div>
-  </div>
-  <div class="col-side">
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:12px">Revenue Breakdown</h3>
-      <div class="text-muted" style="margin-bottom:8px;font-size:12px">Historical Revenue Growth</div>
-      <div class="chart-container"><canvas id="chart-rev-hist"></canvas></div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="grid-2" style="gap:12px">
-        <div>
-          <h3 style="margin-bottom:8px;font-size:13px">Profitability</h3>
-          <div style="font-size:12px">
-            <div class="flex justify-between" style="padding:5px 0"><span class="text-muted">Gross Margins</span><strong>${f(co.grossMargin,'61%')}</strong></div>
-            <div class="flex justify-between" style="padding:5px 0"><span class="text-muted">Operating Margin</span><strong class="text-green">${f(co.operatingMargin,'26%')}</strong></div>
-            <div class="flex justify-between" style="padding:5px 0"><span class="text-muted">Net Profit Margin</span><strong class="text-green">${f(co.netMargin,'15%')}</strong></div>
-          </div>
-        </div>
-        <div>
-          <h3 style="margin-bottom:8px;font-size:13px">Unit Economics</h3>
-          <div style="font-size:12px">
-            <div class="flex justify-between" style="padding:5px 0"><span class="text-muted">CAC</span><strong>${f(co.cac,'â¬3,200')}</strong></div>
-            <div class="flex justify-between" style="padding:5px 0"><span class="text-muted">LTV</span><strong>${f(co.ltv,'â¬18,500')}</strong></div>
-            <div class="flex justify-between" style="padding:5px 0"><span class="text-muted">LTV:CAC</span><strong>${f(co.ltvCac,'5.8x')}</strong></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <h3 style="margin-bottom:10px">Cash Flow Overview</h3>
-      <table style="font-size:12px">
-        <thead><tr><th></th><th>Operating</th><th>Free</th><th>Runway</th></tr></thead>
-        <tbody>
-          <tr><td>Cash Flow</td><td>${f(co.opCashFlow,'â¬850k')}</td><td>${f(co.freeCashFlow,'â¬320k')}</td><td>${f(co.runway,'18 mo')}</td></tr>
-          <tr><td>Monthly Burn</td><td>${f(co.monthlyBurn,'â¬120k')}</td><td>${f(co.monthlyBurn,'â¬120k')}</td><td>â</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="card">
-      <h3 style="margin-bottom:10px">Financial Forecast</h3>
-      <table style="font-size:12px">
-        <thead><tr><th>Year</th><th>Revenue</th><th>EBITDA</th><th>Net Profit</th></tr></thead>
-        <tbody>
-          ${forecast.map(row => `<tr><td>${row.year}</td><td>${row.revenue}</td><td>${row.ebitda}</td><td>${row.netProfit}</td></tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>`;
+    return '<div class="page-header"><h1>' + C.chartUp + ' Financial Metrics</h1><p>Financial reports at a glance</p></div>'
+      + '<div class="layout-main"><div class="col-main">'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Financial Summary</h3>'
+      + '<div class="grid-4">'
+      + '<div class="stat-card"><div class="stat-label">Revenue (LTM)</div><div class="stat-value">' + f(co.revenue,'\u2014') + '</div><div class="stat-sub text-green">' + f(co.growth,'+72%') + '</div></div>'
+      + '<div class="stat-card"><div class="stat-label">EBITDA</div><div class="stat-value">' + f(co.ebitda,'\u2014') + '</div><div class="stat-sub">' + f(co.ebitdaMargin,'21%') + ' margin</div></div>'
+      + '<div class="stat-card"><div class="stat-label">Gross Margin</div><div class="stat-value">' + f(co.grossMargin,'\u2014') + '</div></div>'
+      + '<div class="stat-card"><div class="stat-label">Cash Runway</div><div class="stat-value">' + f(co.runway,'18 mo') + '</div></div>'
+      + '</div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Revenue Breakdown</h3>'
+      + revBreakdown.map(function(r){
+          var label = r[0], val = r[1], pct = r[2];
+          return '<div style="margin-bottom:10px"><div class="flex justify-between" style="font-size:13px;margin-bottom:4px"><span>' + label + '</span><span class="fw-bold">' + val + '</span></div><div style="height:8px;background:#e5e7eb;border-radius:4px"><div style="height:8px;background:#2563a8;border-radius:4px;width:' + pct + '%"></div></div></div>';
+        }).join('')
+      + '</div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Operating Expenses</h3>'
+      + '<div class="grid-2"><div class="chart-container" style="height:160px"><canvas id="chart-opex"></canvas></div>'
+      + '<div style="font-size:12px;padding:8px">' + opex.map(function(o){ return '<div class="flex justify-between" style="padding:5px 0;border-bottom:1px solid #f3f4f6"><span class="text-muted">' + o[0] + '</span><span class="fw-bold">' + o[1] + '</span></div>'; }).join('') + '</div></div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Financial Documents</h3>'
+      + '<div class="file-row"><div class="file-icon file-pdf">' + C.page + '</div><div style="flex:1">3 Year Financial Statements</div><span>' + C.rangle + '</span></div>'
+      + '<div class="file-row"><div class="file-icon file-xlsx">' + C.chart + '</div><div style="flex:1">Financial Model</div><span>' + C.rangle + '</span></div>'
+      + '<div class="file-row"><div class="file-icon file-xlsx">' + C.chart + '</div><div style="flex:1">Unit Economics Model</div><span>' + C.rangle + '</span></div>'
+      + '</div></div>'
+      + '<div class="col-side">'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px">Revenue Breakdown</h3>'
+      + '<div class="text-muted" style="margin-bottom:8px;font-size:12px">Historical Revenue Growth</div>'
+      + '<div class="chart-container"><canvas id="chart-rev-hist"></canvas></div></div>'
+      + '<div class="card" style="margin-bottom:16px"><div class="grid-2" style="gap:12px">'
+      + '<div><h3 style="margin-bottom:8px;font-size:13px">Profitability</h3><div style="font-size:12px">'
+      + '<div class="flex justify-between" style="padding:5px 0"><span class="text-muted">Gross Margins</span><strong>' + f(co.grossMargin,'61%') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:5px 0"><span class="text-muted">Operating Margin</span><strong class="text-green">' + f(co.operatingMargin,'26%') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:5px 0"><span class="text-muted">Net Profit Margin</span><strong class="text-green">' + f(co.netMargin,'15%') + '</strong></div>'
+      + '</div></div>'
+      + '<div><h3 style="margin-bottom:8px;font-size:13px">Unit Economics</h3><div style="font-size:12px">'
+      + '<div class="flex justify-between" style="padding:5px 0"><span class="text-muted">CAC</span><strong>' + f(co.cac, E+'3,200') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:5px 0"><span class="text-muted">LTV</span><strong>' + f(co.ltv, E+'18,500') + '</strong></div>'
+      + '<div class="flex justify-between" style="padding:5px 0"><span class="text-muted">LTV:CAC</span><strong>' + f(co.ltvCac,'5.8x') + '</strong></div>'
+      + '</div></div></div></div>'
+      + '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px">Cash Flow Overview</h3>'
+      + '<table style="font-size:12px"><thead><tr><th></th><th>Operating</th><th>Free</th><th>Runway</th></tr></thead><tbody>'
+      + '<tr><td>Cash Flow</td><td>' + f(co.opCashFlow, E+'850k') + '</td><td>' + f(co.freeCashFlow, E+'320k') + '</td><td>' + f(co.runway,'18 mo') + '</td></tr>'
+      + '<tr><td>Monthly Burn</td><td>' + f(co.monthlyBurn, E+'120k') + '</td><td>' + f(co.monthlyBurn, E+'120k') + '</td><td>\u2014</td></tr>'
+      + '</tbody></table></div>'
+      + '<div class="card"><h3 style="margin-bottom:10px">Financial Forecast</h3>'
+      + '<table style="font-size:12px"><thead><tr><th>Year</th><th>Revenue</th><th>EBITDA</th><th>Net Profit</th></tr></thead><tbody>'
+      + forecast.map(function(row){ return '<tr><td>' + row.year + '</td><td>' + row.revenue + '</td><td>' + row.ebitda + '</td><td>' + row.netProfit + '</td></tr>'; }).join('')
+      + '</tbody></table></div></div></div>';
   };
 </script>
 <script>
@@ -4500,8 +4405,8 @@ async function sendCoChat() {
 
 
 var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";document.addEventListener("change",function(e){if(e.target&&e.target.type==="file"&&e.target.files&&e.target.files.length){handleUploadFiles(e.target.files);}});function handleUploadFiles(files){var area=document.getElementById("upload-status");if(!area){area=document.createElement("div");area.id="upload-status";area.style.cssText="margin:12px 0";var z=document.querySelector(".upload-zone");if(z&&z.parentNode)z.parentNode.insertBefore(area,z.nextSibling);else document.body.appendChild(area);}area.innerHTML="";function msg(m,t){var c={info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1",ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a",warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[t||"info"];var d=document.createElement("div");d.style.cssText="padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;"+c;d.innerHTML=m;area.appendChild(d);}Array.from(files).reduce(function(p,f){return p.then(function(){return uploadOneFile(f,msg);});},Promise.resolve()).then(function(){msg("Done! Going to dashboard...","ok");setTimeout(function(){navigateTo("co-dashboard");},1500);});}async function uploadOneFile(file, msg) {
-    function readAB(f) { return new Promise((res, rej) => { var r = new FileReader(); r.onload = function() { res(r.result); }; r.onerror = function() { rej(r.error); }; r.readAsArrayBuffer(f); }); }
-    function readText(f) { return new Promise((res, rej) => { var r = new FileReader(); r.onload = function() { res(r.result || ''); }; r.onerror = function() { rej(r.error); }; r.readAsText(f); }); }
+    function readAB(f) { return new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); }; r.readAsArrayBuffer(f); }); }
+    function readText(f) { return new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(r.result || ''); }; r.onerror = function(){ rej(r.error); }; r.readAsText(f); }); }
     function workbookToText(wb) {
       var parts = [];
       for (var i = 0; i < wb.SheetNames.length; i++) {
@@ -4511,13 +4416,10 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
       }
       return parts.join('\n\n');
     }
-
     msg('<strong>' + file.name + '</strong> (' + (file.size/1024).toFixed(0) + 'KB) Reading...', 'info');
-
     var ext = (file.name.split('.').pop() || '').toLowerCase();
     var payloadText = '';
     var kindNote = '';
-
     try {
       if (['xlsx','xlsm','xls','xlsb','ods','csv','tsv'].indexOf(ext) !== -1) {
         var buf = await readAB(file);
@@ -4541,16 +4443,12 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
       msg('Read error: ' + e.message, 'warn');
       return;
     }
-
     var MAX = 250000;
     if (payloadText.length > MAX) payloadText = payloadText.slice(0, MAX) + '\n...[truncated]';
-
     var hist = JSON.parse(localStorage.getItem('qselect_upload_history') || '[]');
     hist.unshift({ name: file.name, category: kindNote, size: (file.size/1024).toFixed(0) + 'KB', date: new Date().toISOString() });
     localStorage.setItem('qselect_upload_history', JSON.stringify(hist));
-
     msg('AI extracting from <strong>' + file.name + '</strong> (' + kindNote + ', ' + payloadText.length + ' chars)...', 'info');
-
     try {
       var res = await fetch(UPLOAD_WORKER, {
         method: 'POST',
@@ -4558,7 +4456,7 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1200,
-          system: 'You extract investee company data from documents for a DFI intake platform. Return ONLY valid JSON with these keys (use null for unknown fields): company_name, sector, stage, location, revenue (string with currency e.g. "€4.8M"), revenue_growth (string e.g. "+72%"), ebitda (string with currency e.g. "€1.0M" - this is ABSOLUTE EBITDA not margin), ebitda_margin (string e.g. "21%"), gross_margin (string e.g. "45%"), runway_months (number), employees (number), countries (number of operating countries), raise_target (string e.g. "$8M"), capital_raised (string e.g. "$2.5M"), clients (array of short strings), description (one-line). For spreadsheets, look across ALL sheets - financials are usually on dedicated tabs.',
+          system: 'You extract investee company data from documents for a DFI intake platform. Return ONLY valid JSON with these keys (use null for unknown fields): company_name, sector, stage, location, revenue (string with currency e.g. \u20AC4.8M), revenue_growth (string e.g. +72%), ebitda (string with currency e.g. \u20AC1.0M - this is ABSOLUTE EBITDA not margin), ebitda_margin (string e.g. 21%), gross_margin (string e.g. 45%), runway_months (number), employees (number), countries (number of operating countries), raise_target (string e.g. $8M), capital_raised (string e.g. $2.5M), clients (array of short strings), description (one-line). For spreadsheets, look across ALL sheets - financials are usually on dedicated tabs.',
           messages: [{ role: 'user', content: 'Extract from ' + file.name + ' (' + kindNote + '):\n\n' + payloadText }]
         })
       });
@@ -4568,7 +4466,6 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
       var jstart = cleaned.indexOf('{'), jend = cleaned.lastIndexOf('}');
       var ex = (jstart >= 0 && jend >= 0) ? JSON.parse(cleaned.slice(jstart, jend + 1)) : {};
       var keys = Object.keys(ex).filter(function(k){ return ex[k] !== null && ex[k] !== undefined && ex[k] !== ''; });
-
       if (keys.length) {
         var co = DB.companies[0];
         if (ex.company_name) co.name = ex.company_name;
