@@ -4467,50 +4467,8 @@ async function sendCoChat() {
   hist.scrollTop = hist.scrollHeight;
 }
 
-var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";
-document.addEventListener("change",function(e){
-  if(e.target&&e.target.type==="file"&&e.target.files.length){
-    handleUploadFiles(e.target.files);
-  }
-});
-function handleUploadFiles(files){
-  var area=document.getElementById("upload-status")||createStatusArea();
-  area.innerHTML="";
-  function addMsg(m,t){var c={info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1",ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a",warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[t||"info"];var d=document.createElement("div");d.style.cssText="padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;"+c;d.innerHTML=m;area.appendChild(d);}
-  Array.from(files).reduce(function(p,f){return p.then(function(){return doUploadFile(f,addMsg);});},Promise.resolve()).then(function(){addMsg("Done! Going to dashboard...","ok");setTimeout(function(){navigateTo("co-dashboard");},1500);});
-}
-function createStatusArea(){
-  var a=document.createElement("div");a.id="upload-status";a.style.cssText="margin:12px 0";
-  var z=document.querySelector(".upload-zone");if(z&&z.parentNode)z.parentNode.insertBefore(a,z.nextSibling);else document.body.appendChild(a);
-  return a;
-}
-async function doUploadFile(file,addMsg){
-  addMsg("<strong>"+file.name+"</strong> ("+(file.size/1024).toFixed(0)+"KB)...","info");
-  var content=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result||"");};r.onerror=function(){res("");};if(file.name.match(/\.(csv|txt|json|md)$/i))r.readAsText(file);else r.readAsDataURL(file);});
-  var cat=file.name.match(/\.xlsx?$/i)?"Financial Model":file.name.match(/\.docx?$/i)?"Company Document":file.name.match(/\.pdf$/i)?"PDF":file.name.match(/\.pptx?$/i)?"Presentation":"Document";
-  var hist=JSON.parse(localStorage.getItem("qselect_upload_history")||"[]");hist.unshift({name:file.name,category:cat,size:(file.size/1024).toFixed(0)+"KB",date:new Date().toISOString()});if(hist.length>50)hist.pop();localStorage.setItem("qselect_upload_history",JSON.stringify(hist));
-  var txt=(typeof content==="string"&&content.startsWith("data:"))?"Binary: "+file.name+" "+file.type+" "+(file.size/1024).toFixed(0)+"KB":content.slice(0,12000);
-  addMsg("AI extracting from <strong>"+file.name+"</strong>...","info");
-  try{
-    var resp=await fetch(UPLOAD_WORKER,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:"Extract company data. Return ONLY valid JSON. Return {} if nothing found.",messages:[{role:"user",content:"Extract: company_name,sector,stage,location,revenue,revenue_growth,ebitda,gross_margin,runway_months,employees,countries,raise_target,capital_raised,clients,description. ONLY JSON.\n\n"+file.name+":\n"+txt}]})});
-    var d=await resp.json();var t=d.content&&d.content[0]?d.content[0].text:"{}";
-    var ex=JSON.parse(t.replace(/```json\n?|```\n?/g,"").trim());
-    var keys=Object.keys(ex).filter(function(k){return ex[k]!==null&&ex[k]!=""&&ex[k]!==undefined;});
-    if(keys.length>0){
-      var co=DB.companies[0];
-      if(ex.company_name)co.name=ex.company_name;if(ex.sector)co.sector=ex.sector;if(ex.stage)co.stage=ex.stage;
-      if(ex.location)co.location=ex.location;if(ex.revenue)co.revenue=ex.revenue;if(ex.revenue_growth)co.growth=ex.revenue_growth;
-      if(ex.ebitda)co.ebitda=ex.ebitda;if(ex.gross_margin)co.grossMargin=ex.gross_margin;
-      if(ex.runway_months)co.runway=ex.runway_months+" months";if(ex.employees)co.employees=parseInt(ex.employees)||co.employees;
-      if(ex.countries)co.countries=parseInt(ex.countries)||co.countries;if(ex.raise_target)co.raise=ex.raise_target;
-      if(ex.capital_raised)co.capitalRaised=ex.capital_raised;if(ex.clients&&ex.clients.length)co.clients=ex.clients;
-      if(ex.description)co.description=ex.description;
-      localStorage.setItem("qselect_company_data",JSON.stringify(co));
-      addMsg("Extracted: "+keys.join(", "),"ok");
-    }else{addMsg("Saved (no structured data found)","warn");}
-  }catch(err){addMsg("Saved. Error: "+err.message,"warn");}
-}
-(function(){var s=localStorage.getItem("qselect_company_data");if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
+
+var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";document.addEventListener("change",function(e){if(e.target&&e.target.type==="file"&&e.target.files&&e.target.files.length){handleUploadFiles(e.target.files);}});function handleUploadFiles(files){var area=document.getElementById("upload-status");if(!area){area=document.createElement("div");area.id="upload-status";area.style.cssText="margin:12px 0";var z=document.querySelector(".upload-zone");if(z&&z.parentNode)z.parentNode.insertBefore(area,z.nextSibling);else document.body.appendChild(area);}area.innerHTML="";function msg(m,t){var c={info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1",ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a",warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[t||"info"];var d=document.createElement("div");d.style.cssText="padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;"+c;d.innerHTML=m;area.appendChild(d);}Array.from(files).reduce(function(p,f){return p.then(function(){return uploadOneFile(f,msg);});},Promise.resolve()).then(function(){msg("Done! Going to dashboard...","ok");setTimeout(function(){navigateTo("co-dashboard");},1500);});}async function uploadOneFile(file,msg){msg("<strong>"+file.name+"</strong> ("+(file.size/1024).toFixed(0)+"KB) Reading...","info");var content=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result||"");};r.onerror=function(){res("");};if(file.name.match(/\.(csv|txt|json|md)$/i))r.readAsText(file);else r.readAsDataURL(file);});var hist=JSON.parse(localStorage.getItem("qselect_upload_history")||"[]");hist.unshift({name:file.name,category:"Document",size:(file.size/1024).toFixed(0)+"KB",date:new Date().toISOString()});localStorage.setItem("qselect_upload_history",JSON.stringify(hist));var txt=(content.startsWith&&content.startsWith("data:"))?"File: "+file.name+" ("+file.type+")":content.slice(0,10000);msg("AI extracting from <strong>"+file.name+"</strong>...","info");try{var r=await fetch(UPLOAD_WORKER,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:"Extract company data. Return ONLY valid JSON with keys: company_name,sector,stage,location,revenue,revenue_growth,ebitda,gross_margin,runway_months,employees,countries,raise_target,capital_raised,clients,description. Return {} if nothing found.",messages:[{role:"user",content:"Extract from: "+file.name+"\n\n"+txt}]})});var data=await r.json();var text=data.content&&data.content[0]?data.content[0].text:"{}";var ex=JSON.parse(text.replace(/```json|```/g,"").trim());var keys=Object.keys(ex).filter(function(k){return ex[k];});if(keys.length){var co=DB.companies[0];if(ex.company_name)co.name=ex.company_name;if(ex.sector)co.sector=ex.sector;if(ex.stage)co.stage=ex.stage;if(ex.location)co.location=ex.location;if(ex.revenue)co.revenue=ex.revenue;if(ex.revenue_growth)co.growth=ex.revenue_growth;if(ex.ebitda)co.ebitda=ex.ebitda;if(ex.gross_margin)co.grossMargin=ex.gross_margin;if(ex.runway_months)co.runway=ex.runway_months+" months";if(ex.employees)co.employees=parseInt(ex.employees)||co.employees;if(ex.countries)co.countries=parseInt(ex.countries)||co.countries;if(ex.raise_target)co.raise=ex.raise_target;if(ex.capital_raised)co.capitalRaised=ex.capital_raised;if(ex.clients&&ex.clients.length)co.clients=ex.clients;if(ex.description)co.description=ex.description;localStorage.setItem("qselect_company_data",JSON.stringify(co));msg("Extracted: "+keys.join(", "),"ok");}else{msg("Saved (no data found)","warn");}}catch(err){msg("Saved. Error: "+err.message,"warn");}}(function(){var s=localStorage.getItem("qselect_company_data");if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
 </script>
 </body>
 </html>
