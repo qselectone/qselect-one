@@ -4702,6 +4702,67 @@ document.addEventListener("DOMContentLoaded",wireUploadInput);
 setTimeout(wireUploadInput,1000);
 setInterval(wireUploadInput,2000);
 (function(){var s=localStorage.getItem("qselect_company_data");if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
+
+// UPLOAD SYSTEM v3 - no navigateTo override
+var UPLOAD_WORKER = "https://mute-morning-93ed.james-mcswiggan.workers.dev";
+function wireUploadPage() {
+  var inp = document.getElementById("doc-upload");
+  if (!inp || inp._wired) return;
+  inp._wired = true;
+  inp.accept = "";
+  inp.addEventListener("change", function() { if (inp.files.length) handleUploadDrop(inp.files); });
+  var zone = document.querySelector(".card");
+  if (zone) {
+    zone.addEventListener("dragover", function(e) { e.preventDefault(); });
+    zone.addEventListener("drop", function(e) { e.preventDefault(); if(e.dataTransfer.files.length) handleUploadDrop(e.dataTransfer.files); });
+  }
+}
+function handleUploadDrop(files) {
+  if (!files || !files.length) return;
+  var area = document.getElementById("upload-progress-area");
+  if (!area) {
+    area = document.createElement("div");
+    area.id = "upload-progress-area";
+    area.style.cssText = "margin:16px 0";
+    var card = document.querySelector(".card");
+    if (card) card.appendChild(area);
+    else document.body.appendChild(area);
+  }
+  area.innerHTML = "";
+  function addMsg(msg, type) {
+    var c = {info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1", ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a", warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[type||"info"];
+    var d = document.createElement("div"); d.style.cssText = "padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;" + c; d.innerHTML = msg; area.appendChild(d);
+  }
+  Array.from(files).reduce(function(p, f) { return p.then(function() { return processUploadFile(f, addMsg); }); }, Promise.resolve())
+    .then(function() { addMsg("All done! Going to dashboard...", "ok"); setTimeout(function() { navigateTo("co-dashboard"); }, 1500); });
+}
+async function processUploadFile(file, addMsg) {
+  addMsg("<strong>" + file.name + "</strong> (" + (file.size/1024).toFixed(0) + " KB) — Reading...", "info");
+  var content = await new Promise(function(res) { var r = new FileReader(); r.onload = function(e){res(e.target.result||"");}; r.onerror=function(){res("");}; if(file.name.match(/\.(csv|txt|json|md)$/i))r.readAsText(file); else r.readAsDataURL(file); });
+  var cat = file.name.match(/\.xlsx?$/i)?"Financial Model":file.name.match(/\.docx?$/i)?"Company Document":file.name.match(/\.pdf$/i)?"PDF":file.name.match(/\.pptx?$/i)?"Presentation":"Document";
+  var hist = JSON.parse(localStorage.getItem("qselect_upload_history")||"[]"); hist.unshift({name:file.name,category:cat,size:(file.size/1024).toFixed(0)+" KB",date:new Date().toISOString()}); if(hist.length>50)hist.pop(); localStorage.setItem("qselect_upload_history",JSON.stringify(hist));
+  var txt = (typeof content==="string"&&content.startsWith("data:")) ? "Binary: "+file.name+" ("+file.type+", "+(file.size/1024).toFixed(0)+"KB)" : content.slice(0,12000);
+  addMsg("Claude extracting from <strong>" + file.name + "</strong>...", "info");
+  try {
+    var resp = await fetch(UPLOAD_WORKER, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:"Extract company financial data. Return ONLY valid JSON. Return {} if nothing found.",messages:[{role:"user",content:"Extract: company_name,sector,stage,location,revenue,revenue_growth,ebitda,gross_margin,runway_months,employees,countries,raise_target,capital_raised,clients(array),description,founded_year. Return ONLY JSON.\n\nDoc: "+file.name+"\n\n"+txt}]})});
+    var d = await resp.json(); var t = d.content&&d.content[0]?d.content[0].text:"{}";
+    var ex = JSON.parse(t.replace(/```json\n?|```\n?/g,"").trim());
+    var keys = Object.keys(ex).filter(function(k){return ex[k]!==null&&ex[k]!==""&&ex[k]!==undefined;});
+    if (keys.length > 0) {
+      var co = DB.companies[0];
+      if(ex.company_name)co.name=ex.company_name; if(ex.sector)co.sector=ex.sector; if(ex.stage)co.stage=ex.stage;
+      if(ex.location)co.location=ex.location; if(ex.revenue)co.revenue=ex.revenue; if(ex.revenue_growth)co.growth=ex.revenue_growth;
+      if(ex.ebitda)co.ebitda=ex.ebitda; if(ex.gross_margin)co.grossMargin=ex.gross_margin;
+      if(ex.runway_months)co.runway=ex.runway_months+" months"; if(ex.employees)co.employees=parseInt(ex.employees)||co.employees;
+      if(ex.countries)co.countries=parseInt(ex.countries)||co.countries; if(ex.raise_target)co.raise=ex.raise_target;
+      if(ex.capital_raised)co.capitalRaised=ex.capital_raised; if(ex.clients&&ex.clients.length)co.clients=ex.clients;
+      if(ex.description)co.description=ex.description;
+      localStorage.setItem("qselect_company_data",JSON.stringify(co));
+      addMsg("Extracted: " + keys.join(", "), "ok");
+    } else { addMsg("Saved (no structured data found)", "warn"); }
+  } catch(err) { addMsg("Saved. Error: " + err.message, "warn"); }
+}
+(function(){var s=localStorage.getItem("qselect_company_data");if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
 </script>
 </body>
 </html>
