@@ -428,6 +428,8 @@ function loginAs(portal) {
   navigateTo(portal==='company' ? 'co-dashboard' : 'inv-dashboard');
 }
 
+function logout() {
+  document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';
   currentPortal=null;currentPage=null;
 }
@@ -487,7 +489,7 @@ pageRenderers['co-dashboard'] = () => `
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-bottom:12px">Upload Your Company Files</h3>
       <div class="upload-zone" id="upload-drop-zone" ondragover="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" onclick="triggerUpload()">
-        <input type="file" id="pitchdeck-upload" style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.pptx,.ppt,.txt">
+        <input type="file" id="pitchdeck-upload" style="display:none" accept="">
         ☁️ <strong>Drag & Drop Files or</strong> <button class="btn btn-blue btn-sm" style="margin-left:8px" onclick="event.stopPropagation();triggerUpload()">Browse + Upload</button>
       </div>
     </div>
@@ -496,7 +498,7 @@ pageRenderers['co-dashboard'] = () => `
       <div class="progress-item"><div class="check-circle check-done">✓</div><div style="flex:1">Company Profile</div><span style="color:#6b7280;font-size:12px">›</span></div>
       <div class="progress-item"><div class="check-circle check-done">✓</div><div style="flex:1">Financials</div><span style="color:#6b7280;font-size:12px">›</span></div>
       <div class="progress-item"><div class="check-circle check-done">✓</div><div style="flex:1">Pitch Deck</div><span style="color:#6b7280;font-size:12px">›</span></div>
-      <div class="progress-item"><div class="check-circle check-pending">⏳</div><div style="flex:1">Data Room Upload</div><button class="btn btn-outline btn-sm" onclick="navigateTo('co-upload'); setTimeout(function(){ if(typeof setupUpload==='undefined') setupUpload(); }, 300); setTimeout(initUploadZone, 200)">Upload</button></div>
+      <div class="progress-item"><div class="check-circle check-pending">⏳</div><div style="flex:1">Data Room Upload</div><button class="btn btn-outline btn-sm" onclick="navigateTo('co-upload'); setTimeout(initUploadZone, 200)">Upload</button></div>
     </div>
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-bottom:4px">Revenue Growth</h3>
@@ -793,47 +795,72 @@ pageRenderers['co-pitchdeck'] = () => `
 </div>`;
 
 // ---- UPLOAD ----
-pageRenderers['co-upload'] = function() {
-  var hist = JSON.parse(localStorage.getItem('qselect_upload_history') || '[]');
-  var histHtml = hist.length === 0 
-    ? '<div style="color:#9ca3af;font-size:13px;padding:16px 0">No documents uploaded yet.</div>'
-    : hist.map(function(f) {
-        var icon = f.name.match(/\.xlsx?$/i)?'📊':f.name.match(/\.docx?$/i)?'📝':f.name.match(/\.pdf$/i)?'📄':'📁';
-        return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f3f4f6">'+
-          '<div style="font-size:20px">'+icon+'</div>'+
-          '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#111">'+f.name+'</div>'+
-          '<div style="font-size:11px;color:#6b7280">'+f.category+' &middot; '+f.size+' &middot; '+new Date(f.date).toLocaleDateString('en-GB')+'</div></div>'+
-          '<span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#f0fdf4;color:#16a34a">Processed</span></div>';
-      }).join('');
-  setTimeout(function() {
-    var inp = document.getElementById('real-file-input');
-    var btn = document.getElementById('upload-browse-btn');
-    var zone = document.getElementById('upload-drop-zone');
-    if (!inp || !btn || !zone) return;
-    inp.accept = '';
-    btn.onclick = function(e) { e.stopPropagation(); inp.click(); };
-    zone.onclick = function() { inp.click(); };
-    zone.ondragover = function(e) { e.preventDefault(); zone.style.borderColor='#2563A8'; zone.style.background='#eff6ff'; };
-    zone.ondragleave = function() { zone.style.borderColor='#d1d5db'; zone.style.background='#fafafa'; };
-    zone.ondrop = function(e) { e.preventDefault(); zone.style.borderColor='#d1d5db'; zone.style.background='#fafafa'; handleUploadDrop(e.dataTransfer.files); };
-    inp.onchange = function() { if(inp.files.length) handleUploadDrop(inp.files); };
-  }, 400);
-  return '<div class="page-header"><h1>Document Upload Center</h1><p class="text-muted">Upload company documents. Claude extracts data and updates all dashboards automatically.</p></div>'+
-    '<div class="card" style="margin-bottom:16px">'+
-    '<div id="upload-drop-zone" style="border:2px dashed #d1d5db;border-radius:12px;padding:48px 32px;text-align:center;cursor:pointer;background:#fafafa">'+
-    '<div style="font-size:40px;margin-bottom:12px">📁</div>'+
-    '<div style="font-size:16px;font-weight:600;color:#374151;margin-bottom:4px">Drag and drop files here</div>'+
-    '<div style="font-size:13px;color:#6b7280;margin-bottom:16px">or click to browse &mdash; all file types accepted</div>'+
-    '<button class="btn btn-blue" id="upload-browse-btn">Browse Files</button>'+
-    '<input type="file" id="real-file-input" multiple style="display:none">'+
-    '<div style="margin-top:12px;font-size:11px;color:#9ca3af">PDF &middot; Excel &middot; Word &middot; PowerPoint &middot; CSV</div>'+
-    '</div>'+
-    '<div id="upload-progress-area" style="margin-top:16px"></div>'+
-    '</div>'+
-    '<div class="card"><h3 style="margin:0 0 16px;font-size:15px;font-weight:700">Upload History</h3>'+
-    '<div id="upload-history-list">'+histHtml+'</div></div>';
-};
+pageRenderers['co-upload'] = () => `
+<div class="page-header"><h1>☁️ Document Upload Center</h1><p>Upload and manage company documents used to generate the investment profile, financial analysis, and pitch deck.</p></div>
+<div class="grid-4" style="margin-bottom:16px">
+  <div class="stat-card"><div class="stat-label">Total Documents</div><div class="stat-value">24</div><div class="stat-sub">Files</div></div>
+  <div class="stat-card"><div class="stat-label">Connected Sources</div><div class="stat-value">Google Drive</div></div>
+  <div class="stat-card"><div class="stat-label">Last Upload</div><div class="stat-value" style="font-size:16px">12 Mar 2026</div></div>
+  <div class="stat-card"><div class="stat-label">Storage Used</div><div class="stat-value">184 MB</div></div>
+</div>
+<div class="layout-main">
+  <div class="col-main">
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="margin-bottom:14px">Connected Storage Sources</h3>
+      <div class="grid-4">
+        ${[{name:'Google Drive',icon:'📁',status:'Connected',color:'#16a34a'},{name:'Dropbox',icon:'📦',status:'Connect',color:'#6b7280'},{name:'OneDrive',icon:'☁️',status:'Not Connected',color:'#6b7280'},{name:'Box',icon:'📫',status:'Not Connected',color:'#6b7280'}].map(s=>`
+        <div class="card-sm" style="text-align:center">
+          <div style="font-size:24px;margin-bottom:6px">${s.icon}</div>
+          <div class="fw-bold" style="font-size:13px;margin-bottom:4px">${s.name}</div>
+          <div style="font-size:11px;color:${s.color};margin-bottom:8px">${s.status==='Connected'?'✓ '+s.status:s.status}</div>
+          <button class="btn ${s.status==='Connected'?'btn-outline':'btn-blue'} btn-sm">${s.status==='Connected'?'Reconnect':'Connect'}</button>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="grid-2" style="gap:16px">
+        <div>
+          <h3 style="margin-bottom:10px">Upload History</h3>
+          <div class="text-muted" style="font-size:12px;margin-bottom:8px">⏳ Uploading...</div>
+        </div>
+        <div class="upload-zone" style="padding:16px" ondragover="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <input type="file" id="doc-upload" style="display:none" multiple>
+          <div style="text-align:center">
+            <div style="margin-bottom:8px">Drag files here <em>or</em> click to browse</div>
+            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()" onclick="document.getElementById('upload-file-input').click()">Browse Files</button><input type="file" id="upload-file-input" multiple style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt"><div id="upload-status" style="margin-top:12px"></div>
+            <div class="text-muted" style="margin-top:8px;font-size:11px">PDF · Excel · Word · Images · CSV</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="flex justify-between items-center" style="margin-bottom:12px">
+        <h3>Upload History</h3>
+      </div>
+      <table>
+        <thead><tr><th>File Name</th><th>Source</th><th>Type</th><th>Uploaded</th><th>Size</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><div class="flex items-center gap-8"><div class="file-icon file-pdf" style="width:24px;height:24px;font-size:12px">📄</div>Pitch_Deck_v3.pdf</div></td><td>📁 Google Drive</td><td>Download PDF</td><td>12 Mar 2026</td><td>8.4 MB</td><td><span class="tag tag-green">Processed</span></td></tr>
+          <tr><td><div class="flex items-center gap-8"><div class="file-icon file-xlsx" style="width:24px;height:24px;font-size:12px">📊</div>Financial_Model.xlsx</div></td><td>Manual Upload</td><td>Excel</td><td>11 Mar 2026</td><td>5.2 MB</td><td><span class="tag tag-green">Processed</span></td></tr>
+          <tr><td><div class="flex items-center gap-8"><div class="file-icon file-pdf" style="width:24px;height:24px;font-size:12px">📄</div>Market_Research.pdf</div></td><td>📦 Dropbox</td><td>Download PDF</td><td>10 Mar 2026</td><td>12 MB</td><td><span class="tag tag-orange">Processing…</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-side">
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="margin-bottom:10px">Document Categories</h3>
+      ${['Pitch Deck','Financial Statements','Financial Model','Market Research','Business Plan','Legal Documents','Other Supporting Docs'].map((c,i)=>`<div class="folder-row ${i===2?'active':''}">📁 ${c}</div>`).join('')}
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:10px">AI Processing Status</h3>
+      ${['Document Parsed','Financial Data Extracted','Charts Generated'].map(s=>`<div class="check-list-item"><span class="text-green">✓</span> ${s}</div>`).join('')}
+      <div class="check-list-item"><span style="color:#2563a8">↻</span> Pitch Deck Updated</div>
+    </div>
+  </div>
+</div>`;
 
+// ---- DOCUMENTS ----
 pageRenderers['co-documents'] = () => `
 <div class="page-header"><h1>📄 Documents</h1><p>Download the complete set of investor-ready materials automatically generated from company data, financials, and uploaded files.</p></div>
 <div class="grid-4" style="margin-bottom:16px">
@@ -2438,7 +2465,7 @@ pageRenderers['co-dashboard'] = () => `
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-bottom:12px">Upload Your Company Files</h3>
       <div class="upload-zone" ondragover="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" onclick="triggerUpload()">
-        <input type="file" id="pitchdeck-upload" style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.pptx,.ppt,.txt">
+        <input type="file" id="pitchdeck-upload" style="display:none" accept="">
         ☁️ <strong>Drag & Drop Files or</strong> <button class="btn btn-blue btn-sm" style="margin-left:8px" onclick="event.stopPropagation();triggerUpload()">Browse + Upload</button>
       </div>
     </div>
@@ -2776,8 +2803,8 @@ pageRenderers['co-upload'] = () => `
           <input type="file" id="doc-upload" style="display:none" multiple>
           <div style="text-align:center">
             <div style="margin-bottom:8px">Drag files here <em>or</em> click to browse</div>
-            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()" onclick="document.getElementById('doc-upload').click()">Browse Files</button>
-            <div class="text-muted" style="margin-top:8px;font-size:11px">PDF · Excel · Word · PowerPoint · CSV · DOCX</div>
+            <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()">Browse Files</button>
+            <div class="text-muted" style="margin-top:8px;font-size:11px">PDF · Excel · Word · Images · CSV</div>
           </div>
         </div>
       </div>
@@ -4440,327 +4467,48 @@ async function sendCoChat() {
   hist.scrollTop = hist.scrollHeight;
 }
 
-
-// UPLOAD HANDLER
-(function setupUpload() {
-  var WORKER_URL = 'https://mute-morning-93ed.james-mcswiggan.workers.dev';
-  
-  function getOrCreateInput() {
-    var inp = document.getElementById('doc-upload');
-    if (!inp) {
-      inp = document.createElement('input');
-      inp.type = 'file';
-      inp.id = 'doc-upload';
-      inp.multiple = true;
-      inp.style.display = 'none';
-      document.body.appendChild(inp);
-    }
-    inp.accept = '';
-    inp.removeAttribute('accept');
-    return inp;
+var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";
+document.addEventListener("change",function(e){
+  if(e.target&&e.target.type==="file"&&e.target.files.length){
+    handleUploadFiles(e.target.files);
   }
-
-  function getOrCreateStatus() {
-    var el = document.getElementById('upload-status');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'upload-status';
-      el.style.cssText = 'margin:16px 0';
-      var zone = document.querySelector('[id*="upload"]') || document.querySelector('.card');
-      if (zone && zone.parentNode) zone.parentNode.insertBefore(el, zone.nextSibling);
-      else document.body.appendChild(el);
-    }
-    return el;
-  }
-
-  function addStatus(el, msg, type) {
-    var colors = {info:'#f0f9ff|#bae6fd|#0369a1', ok:'#f0fdf4|#86efac|#16a34a', warn:'#fff7ed|#fed7aa|#d97706'};
-    var c = (colors[type]||colors.info).split('|');
-    el.innerHTML += "<div style='padding:10px 14px;background:"+c[0]+";border:1px solid "+c[1]+";border-radius:8px;font-size:13px;color:"+c[2]+";margin-bottom:6px'>"+msg+"</div>";
-  }
-
-  async function processFiles(files) {
-    var statusEl = getOrCreateStatus();
-    statusEl.innerHTML = '';
-    
-    for (var i = 0; i < files.length; i++) {
-      var file = files[i];
-      addStatus(statusEl, '<strong>📄 ' + file.name + '</strong> (' + (file.size/1024).toFixed(0) + ' KB) — Reading...', 'info');
-      
-      var content = await new Promise(function(res) {
-        var reader = new FileReader();
-        reader.onload = function(e) { res(e.target.result || ''); };
-        if (file.name.match(/\.(csv|txt|json|md)$/i)) reader.readAsText(file);
-        else reader.readAsDataURL(file);
-      });
-
-      addStatus(statusEl, '🤖 AI analysing <strong>' + file.name + '</strong>...', 'info');
-
-      try {
-        var textContent = (typeof content === 'string' && content.startsWith('data:'))
-          ? 'File: ' + file.name + ' (type: ' + file.type + ', size: ' + (file.size/1024).toFixed(0) + 'KB). This is a binary file - extract any company data visible in the filename or infer from file type.'
-          : content.slice(0, 9000);
-
-        var resp = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 800,
-            system: 'You are a financial data extraction AI. Extract structured company data from documents and return ONLY valid JSON. If you cannot extract data from a binary file, return an empty JSON object {}.',
-            messages: [{role: 'user', content: 'Extract company data. Return ONLY a JSON object with any keys you find: company_name, sector, stage, location, revenue, revenue_growth, ebitda, gross_margin, runway_months, employees, countries, raise_target, capital_raised, clients (array of strings), description, founded_year, website.\n\nDocument (' + file.name + '):\n' + textContent}]
-          })
-        });
-
-        if (!resp.ok) throw new Error('API error ' + resp.status);
-        var data = await resp.json();
-        var text = data.content && data.content[0] ? data.content[0].text : null;
-        if (!text) throw new Error('No response from AI');
-
-        var extracted = JSON.parse(text.replace(/```json|```/g, '').trim());
-        var keys = Object.keys(extracted).filter(function(k){ return extracted[k]; });
-
-        if (keys.length > 0) {
-          var co = DB.companies[0];
-          if (extracted.company_name) co.name = extracted.company_name;
-          if (extracted.sector) co.sector = extracted.sector;
-          if (extracted.stage) co.stage = extracted.stage;
-          if (extracted.location) co.location = extracted.location;
-          if (extracted.revenue) co.revenue = extracted.revenue;
-          if (extracted.revenue_growth) co.growth = extracted.revenue_growth;
-          if (extracted.ebitda) co.ebitda = extracted.ebitda;
-          if (extracted.gross_margin) co.grossMargin = extracted.gross_margin;
-          if (extracted.runway_months) co.runway = extracted.runway_months + ' months';
-          if (extracted.employees) co.employees = parseInt(extracted.employees) || co.employees;
-          if (extracted.countries) co.countries = parseInt(extracted.countries) || co.countries;
-          if (extracted.raise_target) co.raise = extracted.raise_target;
-          if (extracted.capital_raised) co.capitalRaised = extracted.capital_raised;
-          if (extracted.clients) co.clients = Array.isArray(extracted.clients) ? extracted.clients : [extracted.clients];
-          if (extracted.description) co.description = extracted.description;
-          localStorage.setItem('qselect_company_data', JSON.stringify(co));
-          addStatus(statusEl, '✓ <strong>' + file.name + '</strong> — Extracted: ' + keys.join(', '), 'ok');
-        } else {
-          addStatus(statusEl, '✓ <strong>' + file.name + '</strong> — Saved (no structured data found)', 'warn');
-        }
-      } catch(e) {
-        addStatus(statusEl, '⚠ <strong>' + file.name + '</strong> — ' + e.message, 'warn');
-      }
-    }
-
-    addStatus(statusEl, '✅ <strong>All done! Updating dashboards...</strong>', 'ok');
-    setTimeout(function() { navigateTo('co-dashboard'); }, 1500);
-  }
-
-  // Wire up input
-  var inp = getOrCreateInput();
-  inp.onchange = function() { if (inp.files.length) processFiles(inp.files); };
-
-  // Wire up drop zone
-  var zone = document.querySelector('.upload-zone');
-  if (zone) {
-    zone.ondragover = function(e) { e.preventDefault(); zone.style.borderColor='#2563A8'; zone.style.background='#eff6ff'; };
-    zone.ondragleave = function() { zone.style.borderColor=''; zone.style.background=''; };
-    zone.ondrop = function(e) { e.preventDefault(); zone.style.borderColor=''; zone.style.background=''; if(e.dataTransfer.files.length) processFiles(e.dataTransfer.files); };
-  }
-
-  // Wire Browse Files buttons
-  document.querySelectorAll('button').forEach(function(btn) {
-    if (btn.textContent.trim() === 'Browse Files') {
-      btn.onclick = function(e) { e.preventDefault(); e.stopPropagation(); getOrCreateInput().click(); };
-    }
-  });
-
-  window._uploadReady = true;
-  console.log('Upload system ready');
-})();
-
-
-
-var UPLOAD_WORKER = 'https://mute-morning-93ed.james-mcswiggan.workers.dev';
-function handleUploadDrop(files) {
-  if (!files || !files.length) return;
-  var area = document.getElementById('upload-progress-area');
-  if (!area) return;
-  area.innerHTML = '';
-  Array.from(files).reduce(function(p, f) { return p.then(function() { return processUploadFile(f, area); }); }, Promise.resolve())
-    .then(function() {
-      addUploadStatus(area, 'All files processed! Updating dashboard...', 'ok');
-      var h = document.getElementById('upload-history-list');
-      if (h) { var hist = JSON.parse(localStorage.getItem('qselect_upload_history')||'[]'); h.innerHTML = hist.map(function(f){var icon=f.name.match(/\.xlsx?$/i)?'📊':f.name.match(/\.docx?$/i)?'📝':f.name.match(/\.pdf$/i)?'📄':'📁';return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f3f4f6"><div style="font-size:20px">'+icon+'</div><div style="flex:1"><div style="font-size:13px;font-weight:600">'+f.name+'</div><div style="font-size:11px;color:#6b7280">'+f.category+' &middot; '+f.size+'</div></div><span style="padding:3px 10px;border-radius:99px;font-size:11px;background:#f0fdf4;color:#16a34a">Processed</span></div>';}).join(''); }
-      setTimeout(function() { navigateTo('co-dashboard'); }, 1500);
-    });
-}
-function addUploadStatus(area, msg, type) {
-  var s = {info:'background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1',ok:'background:#f0fdf4;border:1px solid #86efac;color:#16a34a',warn:'background:#fff7ed;border:1px solid #fed7aa;color:#d97706',err:'background:#fef2f2;border:1px solid #fca5a5;color:#dc2626'};
-  var d = document.createElement('div'); d.style.cssText = 'padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;'+(s[type]||s.info); d.innerHTML = msg; area.appendChild(d);
-}
-async function processUploadFile(file, area) {
-  addUploadStatus(area, '<strong>'+file.name+'</strong> ('+(file.size/1024).toFixed(0)+' KB) &mdash; Reading...', 'info');
-  var content = await new Promise(function(resolve) { var r = new FileReader(); r.onload = function(e){resolve(e.target.result||'');}; r.onerror=function(){resolve('');}; if(file.name.match(/\.(csv|txt|json|md)$/i)){r.readAsText(file);}else{r.readAsDataURL(file);} });
-  var cat = file.name.match(/\.xlsx?$/i)?'Financial Model':file.name.match(/\.docx?$/i)?'Company Document':file.name.match(/\.pdf$/i)?'PDF Document':file.name.match(/\.pptx?$/i)?'Presentation':file.name.match(/\.csv$/i)?'Data File':'Document';
-  var hist = JSON.parse(localStorage.getItem('qselect_upload_history')||'[]'); hist.unshift({name:file.name,category:cat,size:(file.size/1024).toFixed(0)+' KB',date:new Date().toISOString()}); if(hist.length>50)hist.pop(); localStorage.setItem('qselect_upload_history',JSON.stringify(hist));
-  var txt = (typeof content==='string'&&content.startsWith('data:')) ? 'Binary file: '+file.name+' type: '+file.type+' size: '+(file.size/1024).toFixed(0)+'KB. Extract company data from filename if possible.' : content.slice(0,12000);
-  addUploadStatus(area, 'Claude extracting from <strong>'+file.name+'</strong>...', 'info');
-  try {
-    var resp = await fetch(UPLOAD_WORKER, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:'You are a financial data extraction specialist. Extract company data from documents. Return ONLY valid JSON. Return {} if nothing found.',messages:[{role:'user',content:'Extract company data. Return ONLY JSON with keys: company_name, sector, stage, location, revenue, revenue_growth, ebitda, gross_margin, runway_months(number), employees(number), countries(number), raise_target, capital_raised, clients(array), description, founded_year(number).\n\nDocument: '+file.name+'\n\n'+txt}]})});
-    if(!resp.ok) throw new Error('API '+resp.status);
-    var d = await resp.json(); var t = d.content&&d.content[0]?d.content[0].text:'{}';
-    var ex = JSON.parse(t.replace(/```json\n?|```\n?/g,'').trim());
-    var keys = Object.keys(ex).filter(function(k){return ex[k]!==null&&ex[k]!==''&&ex[k]!==undefined;});
-    if(keys.length>0) { updateDashboardFromExtraction(ex); addUploadStatus(area,'<strong>'+file.name+'</strong> &mdash; Extracted: '+keys.join(', '),'ok'); }
-    else { addUploadStatus(area,'<strong>'+file.name+'</strong> &mdash; Saved (no structured data)','warn'); }
-  } catch(err) { addUploadStatus(area,'<strong>'+file.name+'</strong> &mdash; Saved. Error: '+err.message,'warn'); }
-}
-function updateDashboardFromExtraction(d) {
-  if(!DB||!DB.companies||!DB.companies[0]) return;
-  var co = DB.companies[0];
-  if(d.company_name) co.name=d.company_name; if(d.sector) co.sector=d.sector; if(d.stage) co.stage=d.stage;
-  if(d.location) co.location=d.location; if(d.revenue) co.revenue=d.revenue; if(d.revenue_growth) co.growth=d.revenue_growth;
-  if(d.ebitda) co.ebitda=d.ebitda; if(d.gross_margin) co.grossMargin=d.gross_margin;
-  if(d.runway_months) co.runway=d.runway_months+' months'; if(d.employees) co.employees=parseInt(d.employees)||co.employees;
-  if(d.countries) co.countries=parseInt(d.countries)||co.countries; if(d.raise_target) co.raise=d.raise_target;
-  if(d.capital_raised) co.capitalRaised=d.capital_raised; if(d.clients&&d.clients.length) co.clients=d.clients;
-  if(d.description) co.description=d.description; if(d.founded_year) co.founded=d.founded_year;
-  localStorage.setItem('qselect_company_data',JSON.stringify(co));
-  console.log('Dashboard updated:',co.name);
-}
-(function(){var s=localStorage.getItem('qselect_company_data');if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
-
-
-var UPLOAD_WORKER = "https://mute-morning-93ed.james-mcswiggan.workers.dev";
-var CLAUDE_PROXY = "https://mute-morning-93ed.james-mcswiggan.workers.dev";
-async function callClaude(sys, usr, tok) {
-  var r = await fetch(CLAUDE_PROXY, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:tok||1000,system:sys,messages:[{role:"user",content:usr}]})});
-  if(!r.ok) throw new Error("Claude error "+r.status);
-  var d = await r.json(); return d.content&&d.content[0]?d.content[0].text:"";
-}
-async function sendCoChat() {
-  var inp=document.getElementById("co-chat-input"); if(!inp||!inp.value.trim()) return;
-  var msg=inp.value; inp.value="";
-  var hist=document.getElementById("co-chat-history");
-  hist.innerHTML+="<div style='text-align:right;margin-bottom:12px'><div class='msg-bubble msg-sent'>"+msg+"</div></div>";
-  var id="t"+Date.now();
-  hist.innerHTML+="<div id='"+id+"' style='margin-bottom:12px'><div class='text-muted' style='margin-bottom:4px'>AI Investment Assistant</div><div class='msg-bubble msg-recv' style='color:#6b7280;font-style:italic'>Thinking...</div></div>";
-  hist.scrollTop=hist.scrollHeight;
-  var co=DB.companies[0];
-  var sys="You are the AI Investment Assistant for QSelectOne. Company: "+co.name+". Sector: "+co.sector+". Stage: "+co.stage+". Revenue: "+co.revenue+" ("+co.growth+" YoY). EBITDA: "+co.ebitda+". Gross Margin: "+co.grossMargin+". Runway: "+co.runway+". Raise: "+co.raise+". Description: "+co.description+". Top investors: "+DB.investors.slice(0,3).map(function(i){return i.name;}).join(", ")+". Be specific.";
-  try {
-    var answer=await callClaude(sys,msg,800);
-    var el=document.getElementById(id);
-    if(el) el.innerHTML="<div class='text-muted' style='margin-bottom:4px'>AI Investment Assistant</div><div class='msg-bubble msg-recv' style='white-space:pre-wrap'>"+answer+"</div>";
-  } catch(e) {
-    var el=document.getElementById(id);
-    if(el) el.innerHTML="<div class='text-muted' style='margin-bottom:4px'>AI Investment Assistant</div><div class='msg-bubble msg-recv' style='color:#dc2626'>Error: "+e.message+"</div>";
-  }
-  hist.scrollTop=hist.scrollHeight;
-}
-function handleUploadDrop(files) {
-  if(!files||!files.length) return;
-  var area=document.getElementById("upload-progress-area");
-  if(!area) { area=document.createElement("div"); area.id="upload-progress-area"; area.style.cssText="margin:16px 0"; var z=document.querySelector(".card"); if(z&&z.parentNode) z.parentNode.insertBefore(area,z.nextSibling); else document.body.appendChild(area); }
+});
+function handleUploadFiles(files){
+  var area=document.getElementById("upload-status")||createStatusArea();
   area.innerHTML="";
-  function addMsg(msg,type) { var c={info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1",ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a",warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[type||"info"]; var d=document.createElement("div"); d.style.cssText="padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;"+c; d.innerHTML=msg; area.appendChild(d); }
-  Array.from(files).reduce(function(p,f){return p.then(function(){return processUploadFile(f,area,addMsg);});},Promise.resolve())
-    .then(function(){addMsg("All done! Updating dashboards...","ok");setTimeout(function(){navigateTo("co-dashboard");},1500);});
+  function addMsg(m,t){var c={info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1",ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a",warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[t||"info"];var d=document.createElement("div");d.style.cssText="padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;"+c;d.innerHTML=m;area.appendChild(d);}
+  Array.from(files).reduce(function(p,f){return p.then(function(){return doUploadFile(f,addMsg);});},Promise.resolve()).then(function(){addMsg("Done! Going to dashboard...","ok");setTimeout(function(){navigateTo("co-dashboard");},1500);});
 }
-async function processUploadFile(file,area,addMsg) {
-  addMsg("<strong>"+file.name+"</strong> ("+(file.size/1024).toFixed(0)+" KB) &mdash; Reading...","info");
+function createStatusArea(){
+  var a=document.createElement("div");a.id="upload-status";a.style.cssText="margin:12px 0";
+  var z=document.querySelector(".upload-zone");if(z&&z.parentNode)z.parentNode.insertBefore(a,z.nextSibling);else document.body.appendChild(a);
+  return a;
+}
+async function doUploadFile(file,addMsg){
+  addMsg("<strong>"+file.name+"</strong> ("+(file.size/1024).toFixed(0)+"KB)...","info");
   var content=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result||"");};r.onerror=function(){res("");};if(file.name.match(/\.(csv|txt|json|md)$/i))r.readAsText(file);else r.readAsDataURL(file);});
   var cat=file.name.match(/\.xlsx?$/i)?"Financial Model":file.name.match(/\.docx?$/i)?"Company Document":file.name.match(/\.pdf$/i)?"PDF":file.name.match(/\.pptx?$/i)?"Presentation":"Document";
-  var hist=JSON.parse(localStorage.getItem("qselect_upload_history")||"[]");hist.unshift({name:file.name,category:cat,size:(file.size/1024).toFixed(0)+" KB",date:new Date().toISOString()});if(hist.length>50)hist.pop();localStorage.setItem("qselect_upload_history",JSON.stringify(hist));
-  var txt=(typeof content==="string"&&content.startsWith("data:"))?"Binary: "+file.name+" ("+file.type+", "+(file.size/1024).toFixed(0)+"KB)":content.slice(0,12000);
-  addMsg("Claude extracting from <strong>"+file.name+"</strong>...","info");
-  try {
-    var resp=await fetch(UPLOAD_WORKER,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:"Extract company financial data. Return ONLY valid JSON. Return {} if nothing found.",messages:[{role:"user",content:"Extract: company_name,sector,stage,location,revenue,revenue_growth,ebitda,gross_margin,runway_months,employees,countries,raise_target,capital_raised,clients(array),description,founded_year. Return ONLY JSON.\n\nDoc: "+file.name+"\n\n"+txt}]}));
+  var hist=JSON.parse(localStorage.getItem("qselect_upload_history")||"[]");hist.unshift({name:file.name,category:cat,size:(file.size/1024).toFixed(0)+"KB",date:new Date().toISOString()});if(hist.length>50)hist.pop();localStorage.setItem("qselect_upload_history",JSON.stringify(hist));
+  var txt=(typeof content==="string"&&content.startsWith("data:"))?"Binary: "+file.name+" "+file.type+" "+(file.size/1024).toFixed(0)+"KB":content.slice(0,12000);
+  addMsg("AI extracting from <strong>"+file.name+"</strong>...","info");
+  try{
+    var resp=await fetch(UPLOAD_WORKER,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:"Extract company data. Return ONLY valid JSON. Return {} if nothing found.",messages:[{role:"user",content:"Extract: company_name,sector,stage,location,revenue,revenue_growth,ebitda,gross_margin,runway_months,employees,countries,raise_target,capital_raised,clients,description. ONLY JSON.\n\n"+file.name+":\n"+txt}]})});
     var d=await resp.json();var t=d.content&&d.content[0]?d.content[0].text:"{}";
     var ex=JSON.parse(t.replace(/```json\n?|```\n?/g,"").trim());
-    var keys=Object.keys(ex).filter(function(k){return ex[k]!==null&&ex[k]!==""&&ex[k]!==undefined;});
-    if(keys.length>0){updateDashboardFromExtraction(ex);addMsg("<strong>"+file.name+"</strong> &mdash; Extracted: "+keys.join(", "),"ok");}
-    else{addMsg("<strong>"+file.name+"</strong> &mdash; Saved (no structured data)","warn");}
-  } catch(err){addMsg("<strong>"+file.name+"</strong> &mdash; Saved. Error: "+err.message,"warn");}
-}
-function updateDashboardFromExtraction(d) {
-  if(!DB||!DB.companies||!DB.companies[0]) return;
-  var co=DB.companies[0];
-  if(d.company_name)co.name=d.company_name;if(d.sector)co.sector=d.sector;if(d.stage)co.stage=d.stage;
-  if(d.location)co.location=d.location;if(d.revenue)co.revenue=d.revenue;if(d.revenue_growth)co.growth=d.revenue_growth;
-  if(d.ebitda)co.ebitda=d.ebitda;if(d.gross_margin)co.grossMargin=d.gross_margin;
-  if(d.runway_months)co.runway=d.runway_months+" months";
-  if(d.employees)co.employees=parseInt(d.employees)||co.employees;
-  if(d.countries)co.countries=parseInt(d.countries)||co.countries;
-  if(d.raise_target)co.raise=d.raise_target;if(d.capital_raised)co.capitalRaised=d.capital_raised;
-  if(d.clients&&d.clients.length)co.clients=d.clients;
-  if(d.description)co.description=d.description;
-  localStorage.setItem("qselect_company_data",JSON.stringify(co));
-  console.log("Dashboard updated:",co.name);
-}
-function wireUploadInput() {
-  var inp=document.getElementById("doc-upload");
-  if(inp&&!inp._wired){inp._wired=true;inp.accept="";inp.removeAttribute("accept");inp.addEventListener("change",function(){if(inp.files.length)handleUploadDrop(inp.files);});}
-}
-document.addEventListener("DOMContentLoaded",wireUploadInput);
-setTimeout(wireUploadInput,1000);
-setInterval(wireUploadInput,2000);
-(function(){var s=localStorage.getItem("qselect_company_data");if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
-
-// UPLOAD SYSTEM v3 - no navigateTo override
-var UPLOAD_WORKER = "https://mute-morning-93ed.james-mcswiggan.workers.dev";
-function wireUploadPage() {
-  var inp = document.getElementById("doc-upload");
-  if (!inp || inp._wired) return;
-  inp._wired = true;
-  inp.accept = "";
-  inp.addEventListener("change", function() { if (inp.files.length) handleUploadDrop(inp.files); });
-  var zone = document.querySelector(".card");
-  if (zone) {
-    zone.addEventListener("dragover", function(e) { e.preventDefault(); });
-    zone.addEventListener("drop", function(e) { e.preventDefault(); if(e.dataTransfer.files.length) handleUploadDrop(e.dataTransfer.files); });
-  }
-}
-function handleUploadDrop(files) {
-  if (!files || !files.length) return;
-  var area = document.getElementById("upload-progress-area");
-  if (!area) {
-    area = document.createElement("div");
-    area.id = "upload-progress-area";
-    area.style.cssText = "margin:16px 0";
-    var card = document.querySelector(".card");
-    if (card) card.appendChild(area);
-    else document.body.appendChild(area);
-  }
-  area.innerHTML = "";
-  function addMsg(msg, type) {
-    var c = {info:"background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1", ok:"background:#f0fdf4;border:1px solid #86efac;color:#16a34a", warn:"background:#fff7ed;border:1px solid #fed7aa;color:#d97706"}[type||"info"];
-    var d = document.createElement("div"); d.style.cssText = "padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:6px;" + c; d.innerHTML = msg; area.appendChild(d);
-  }
-  Array.from(files).reduce(function(p, f) { return p.then(function() { return processUploadFile(f, addMsg); }); }, Promise.resolve())
-    .then(function() { addMsg("All done! Going to dashboard...", "ok"); setTimeout(function() { navigateTo("co-dashboard"); }, 1500); });
-}
-async function processUploadFile(file, addMsg) {
-  addMsg("<strong>" + file.name + "</strong> (" + (file.size/1024).toFixed(0) + " KB) — Reading...", "info");
-  var content = await new Promise(function(res) { var r = new FileReader(); r.onload = function(e){res(e.target.result||"");}; r.onerror=function(){res("");}; if(file.name.match(/\.(csv|txt|json|md)$/i))r.readAsText(file); else r.readAsDataURL(file); });
-  var cat = file.name.match(/\.xlsx?$/i)?"Financial Model":file.name.match(/\.docx?$/i)?"Company Document":file.name.match(/\.pdf$/i)?"PDF":file.name.match(/\.pptx?$/i)?"Presentation":"Document";
-  var hist = JSON.parse(localStorage.getItem("qselect_upload_history")||"[]"); hist.unshift({name:file.name,category:cat,size:(file.size/1024).toFixed(0)+" KB",date:new Date().toISOString()}); if(hist.length>50)hist.pop(); localStorage.setItem("qselect_upload_history",JSON.stringify(hist));
-  var txt = (typeof content==="string"&&content.startsWith("data:")) ? "Binary: "+file.name+" ("+file.type+", "+(file.size/1024).toFixed(0)+"KB)" : content.slice(0,12000);
-  addMsg("Claude extracting from <strong>" + file.name + "</strong>...", "info");
-  try {
-    var resp = await fetch(UPLOAD_WORKER, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:"Extract company financial data. Return ONLY valid JSON. Return {} if nothing found.",messages:[{role:"user",content:"Extract: company_name,sector,stage,location,revenue,revenue_growth,ebitda,gross_margin,runway_months,employees,countries,raise_target,capital_raised,clients(array),description,founded_year. Return ONLY JSON.\n\nDoc: "+file.name+"\n\n"+txt}]})});
-    var d = await resp.json(); var t = d.content&&d.content[0]?d.content[0].text:"{}";
-    var ex = JSON.parse(t.replace(/```json\n?|```\n?/g,"").trim());
-    var keys = Object.keys(ex).filter(function(k){return ex[k]!==null&&ex[k]!==""&&ex[k]!==undefined;});
-    if (keys.length > 0) {
-      var co = DB.companies[0];
-      if(ex.company_name)co.name=ex.company_name; if(ex.sector)co.sector=ex.sector; if(ex.stage)co.stage=ex.stage;
-      if(ex.location)co.location=ex.location; if(ex.revenue)co.revenue=ex.revenue; if(ex.revenue_growth)co.growth=ex.revenue_growth;
-      if(ex.ebitda)co.ebitda=ex.ebitda; if(ex.gross_margin)co.grossMargin=ex.gross_margin;
-      if(ex.runway_months)co.runway=ex.runway_months+" months"; if(ex.employees)co.employees=parseInt(ex.employees)||co.employees;
-      if(ex.countries)co.countries=parseInt(ex.countries)||co.countries; if(ex.raise_target)co.raise=ex.raise_target;
-      if(ex.capital_raised)co.capitalRaised=ex.capital_raised; if(ex.clients&&ex.clients.length)co.clients=ex.clients;
+    var keys=Object.keys(ex).filter(function(k){return ex[k]!==null&&ex[k]!=""&&ex[k]!==undefined;});
+    if(keys.length>0){
+      var co=DB.companies[0];
+      if(ex.company_name)co.name=ex.company_name;if(ex.sector)co.sector=ex.sector;if(ex.stage)co.stage=ex.stage;
+      if(ex.location)co.location=ex.location;if(ex.revenue)co.revenue=ex.revenue;if(ex.revenue_growth)co.growth=ex.revenue_growth;
+      if(ex.ebitda)co.ebitda=ex.ebitda;if(ex.gross_margin)co.grossMargin=ex.gross_margin;
+      if(ex.runway_months)co.runway=ex.runway_months+" months";if(ex.employees)co.employees=parseInt(ex.employees)||co.employees;
+      if(ex.countries)co.countries=parseInt(ex.countries)||co.countries;if(ex.raise_target)co.raise=ex.raise_target;
+      if(ex.capital_raised)co.capitalRaised=ex.capital_raised;if(ex.clients&&ex.clients.length)co.clients=ex.clients;
       if(ex.description)co.description=ex.description;
       localStorage.setItem("qselect_company_data",JSON.stringify(co));
-      addMsg("Extracted: " + keys.join(", "), "ok");
-    } else { addMsg("Saved (no structured data found)", "warn"); }
-  } catch(err) { addMsg("Saved. Error: " + err.message, "warn"); }
+      addMsg("Extracted: "+keys.join(", "),"ok");
+    }else{addMsg("Saved (no structured data found)","warn");}
+  }catch(err){addMsg("Saved. Error: "+err.message,"warn");}
 }
 (function(){var s=localStorage.getItem("qselect_company_data");if(s&&DB&&DB.companies&&DB.companies[0]){try{Object.assign(DB.companies[0],JSON.parse(s));}catch(e){}}})();
 </script>
