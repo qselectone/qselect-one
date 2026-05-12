@@ -489,7 +489,7 @@ pageRenderers['co-dashboard'] = () => `
     <div class="card" style="margin-bottom:16px">
       <h3 style="margin-bottom:12px">Upload Your Company Files</h3>
       <div class="upload-zone" id="upload-drop-zone" ondragover="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" onclick="triggerUpload()">
-        <input type="file" id="pitchdeck-upload" style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.pptx,.ppt,.txt">
+        <input type="file" id="pitchdeck-upload" onchange="if(this.files.length)handleUploadDrop(this.files)" style="display:none" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.pptx,.ppt,.txt">
         ☁️ <strong>Drag & Drop Files or</strong> <button class="btn btn-blue btn-sm" style="margin-left:8px" onclick="event.stopPropagation();triggerUpload()">Browse + Upload</button>
       </div>
     </div>
@@ -2775,7 +2775,7 @@ pageRenderers['co-upload'] = () => `
           <div class="text-muted" style="font-size:12px;margin-bottom:8px">⏳ Uploading...</div>
         </div>
         <div class="upload-zone" style="padding:16px" ondragover="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
-          <input type="file" id="doc-upload" style="display:none" multiple>
+          <input type="file" id="doc-upload" onchange="if(this.files.length)handleUploadDrop(this.files)" style="display:none" multiple>
           <div style="text-align:center">
             <div style="margin-bottom:8px">Drag files here <em>or</em> click to browse</div>
             <button class="btn btn-blue btn-sm" onclick="document.getElementById('doc-upload').click()" onclick="document.getElementById('doc-upload').click()">Browse Files</button>
