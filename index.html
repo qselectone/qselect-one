@@ -200,6 +200,7 @@ select.form-control{appearance:auto}
 .activity-item strong{color:#1a2040}
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body>
 
@@ -4416,25 +4417,38 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
       }
       return parts.join('\n\n');
     }
+
     msg('<strong>' + file.name + '</strong> (' + (file.size/1024).toFixed(0) + 'KB) Reading...', 'info');
+
     var ext = (file.name.split('.').pop() || '').toLowerCase();
     var payloadText = '';
     var kindNote = '';
+
     try {
       if (['xlsx','xlsm','xls','xlsb','ods','csv','tsv'].indexOf(ext) !== -1) {
         var buf = await readAB(file);
         var wb = XLSX.read(buf, { type: 'array', cellDates: true });
         payloadText = workbookToText(wb);
         kindNote = 'spreadsheet';
+      } else if (ext === 'docx') {
+        if (typeof mammoth === 'undefined') {
+          payloadText = '(DOCX file ' + file.name + ' - mammoth.js not loaded)';
+          kindNote = 'docx-noparser';
+        } else {
+          var dbuf = await readAB(file);
+          var dres = await mammoth.extractRawText({ arrayBuffer: dbuf });
+          payloadText = dres.value || '';
+          kindNote = 'word-doc';
+        }
       } else if (['txt','md','json','html'].indexOf(ext) !== -1) {
         payloadText = await readText(file);
         kindNote = 'text';
       } else if (ext === 'pdf') {
         payloadText = '(PDF file ' + file.name + ', ' + (file.size/1024).toFixed(0) + 'KB - content not extracted yet)';
         kindNote = 'pdf-stub';
-      } else if (['docx','pptx'].indexOf(ext) !== -1) {
-        payloadText = '(' + ext.toUpperCase() + ' file ' + file.name + ', ' + (file.size/1024).toFixed(0) + 'KB - content not extracted yet)';
-        kindNote = 'office-stub';
+      } else if (ext === 'pptx') {
+        payloadText = '(PPTX file ' + file.name + ', ' + (file.size/1024).toFixed(0) + 'KB - content not extracted yet)';
+        kindNote = 'pptx-stub';
       } else {
         payloadText = '(Unknown file type: ' + file.name + ')';
         kindNote = 'unknown';
@@ -4443,20 +4457,24 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
       msg('Read error: ' + e.message, 'warn');
       return;
     }
+
     var MAX = 250000;
     if (payloadText.length > MAX) payloadText = payloadText.slice(0, MAX) + '\n...[truncated]';
+
     var hist = JSON.parse(localStorage.getItem('qselect_upload_history') || '[]');
     hist.unshift({ name: file.name, category: kindNote, size: (file.size/1024).toFixed(0) + 'KB', date: new Date().toISOString() });
     localStorage.setItem('qselect_upload_history', JSON.stringify(hist));
+
     msg('AI extracting from <strong>' + file.name + '</strong> (' + kindNote + ', ' + payloadText.length + ' chars)...', 'info');
+
     try {
       var res = await fetch(UPLOAD_WORKER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1200,
-          system: 'You extract investee company data from documents for a DFI intake platform. Return ONLY valid JSON with these keys (use null for unknown fields): company_name, sector, stage, location, revenue (string with currency e.g. \u20AC4.8M), revenue_growth (string e.g. +72%), ebitda (string with currency e.g. \u20AC1.0M - this is ABSOLUTE EBITDA not margin), ebitda_margin (string e.g. 21%), gross_margin (string e.g. 45%), runway_months (number), employees (number), countries (number of operating countries), raise_target (string e.g. $8M), capital_raised (string e.g. $2.5M), clients (array of short strings), description (one-line). For spreadsheets, look across ALL sheets - financials are usually on dedicated tabs.',
+          max_tokens: 2500,
+          system: 'You extract investee company data from documents for a DFI intake platform. Return ONLY valid JSON. Use null for unknown fields. Schema:\n{\n  "company_name": string|null,\n  "sector": string|null,\n  "stage": string|null,\n  "location": string|null,\n  "founded": number|null,\n  "description": string|null,\n  "revenue": string|null,\n  "revenue_growth": string|null,\n  "ebitda": string|null,\n  "ebitda_margin": string|null,\n  "gross_margin": string|null,\n  "operating_margin": string|null,\n  "net_margin": string|null,\n  "runway_months": number|null,\n  "employees": number|null,\n  "countries": number|null,\n  "raise_target": string|null,\n  "capital_raised": string|null,\n  "pre_money_val": string|null,\n  "min_ticket": string|null,\n  "cac": string|null,\n  "ltv": string|null,\n  "ltv_cac": string|null,\n  "op_cash_flow": string|null,\n  "free_cash_flow": string|null,\n  "monthly_burn": string|null,\n  "clients": string[]|null,\n  "highlights": string[]|null,\n  "team": [{"name":string,"role":string,"bio":string}]|null,\n  "shareholders": [{"name":string,"type":string,"pct":string}]|null,\n  "certifications": string[]|null,\n  "market_position": string[]|null,\n  "use_of_funds": string|null,\n  "revenue_breakdown": [[string,string,number]]|null,\n  "opex": [[string,string]]|null,\n  "forecast": [{"year":string,"revenue":string,"ebitda":string,"netProfit":string}]|null,\n  "financials": {"y1":string,"y2":string,"y3":string}|null\n}\n\nRules:\n- Revenue/EBITDA values must be ABSOLUTE with currency (e.g. "$1.19M", "-$1.57M"). Never put a percent into ebitda; percent goes in ebitda_margin.\n- For Word docs (company profiles), look hard for team bios, existing investors (-> shareholders), use of funds, risks, ESG metrics.\n- For spreadsheets, look across ALL sheets.\n- forecast: if doc has FY26/FY27/FY28 projections, populate. financials.y1/y2/y3 = next 3 forecast years revenue.\n- Return ONLY the JSON object, no prose.',
           messages: [{ role: 'user', content: 'Extract from ' + file.name + ' (' + kindNote + '):\n\n' + payloadText }]
         })
       });
@@ -4465,27 +4483,56 @@ var UPLOAD_WORKER="https://mute-morning-93ed.james-mcswiggan.workers.dev";docume
       var cleaned = text.replace(/```json|```/g, '').trim();
       var jstart = cleaned.indexOf('{'), jend = cleaned.lastIndexOf('}');
       var ex = (jstart >= 0 && jend >= 0) ? JSON.parse(cleaned.slice(jstart, jend + 1)) : {};
-      var keys = Object.keys(ex).filter(function(k){ return ex[k] !== null && ex[k] !== undefined && ex[k] !== ''; });
+      var keys = Object.keys(ex).filter(function(k){
+        var v = ex[k];
+        if (v === null || v === undefined || v === '') return false;
+        if (Array.isArray(v) && v.length === 0) return false;
+        return true;
+      });
+
       if (keys.length) {
         var co = DB.companies[0];
-        if (ex.company_name) co.name = ex.company_name;
-        if (ex.sector) co.sector = ex.sector;
-        if (ex.stage) co.stage = ex.stage;
-        if (ex.location) co.location = ex.location;
-        if (ex.revenue) co.revenue = ex.revenue;
-        if (ex.revenue_growth) co.growth = ex.revenue_growth;
-        if (ex.ebitda) co.ebitda = ex.ebitda;
-        if (ex.ebitda_margin) co.ebitdaMargin = ex.ebitda_margin;
-        if (ex.gross_margin) co.grossMargin = ex.gross_margin;
+        // Simple string/number fields
+        var simpleMap = {
+          company_name: 'name', sector: 'sector', stage: 'stage', location: 'location',
+          founded: 'founded', description: 'description',
+          revenue: 'revenue', revenue_growth: 'growth', ebitda: 'ebitda',
+          ebitda_margin: 'ebitdaMargin', gross_margin: 'grossMargin',
+          operating_margin: 'operatingMargin', net_margin: 'netMargin',
+          raise_target: 'raise', capital_raised: 'capitalRaised',
+          pre_money_val: 'preMoneyVal', min_ticket: 'minTicket',
+          cac: 'cac', ltv: 'ltv', ltv_cac: 'ltvCac',
+          op_cash_flow: 'opCashFlow', free_cash_flow: 'freeCashFlow', monthly_burn: 'monthlyBurn',
+          use_of_funds: 'useOfFunds'
+        };
+        Object.keys(simpleMap).forEach(function(k){ if (ex[k]) co[simpleMap[k]] = ex[k]; });
+
+        // Specials
         if (ex.runway_months) co.runway = ex.runway_months + ' months';
         if (ex.employees) co.employees = parseInt(ex.employees) || co.employees;
         if (ex.countries) co.countries = parseInt(ex.countries) || co.countries;
-        if (ex.raise_target) co.raise = ex.raise_target;
-        if (ex.capital_raised) co.capitalRaised = ex.capital_raised;
-        if (ex.clients && ex.clients.length) co.clients = ex.clients;
-        if (ex.description) co.description = ex.description;
+        // Arrays - only overwrite if non-empty
+        ['clients','highlights','team','shareholders','certifications','market_position','revenue_breakdown','opex','forecast'].forEach(function(k){
+          if (ex[k] && Array.isArray(ex[k]) && ex[k].length) {
+            // marketPosition camelCase fix
+            var dest = (k === 'market_position') ? 'marketPosition' :
+                       (k === 'revenue_breakdown') ? 'revenueBreakdown' : k;
+            co[dest] = ex[k];
+          }
+        });
+        // financials object
+        if (ex.financials && typeof ex.financials === 'object') {
+          co.financials = Object.assign({}, co.financials || {}, ex.financials);
+        }
+
         co._lastUpdated = new Date().toISOString();
         localStorage.setItem('qselect_company_data', JSON.stringify(co));
+
+        // Re-render current page so updates show immediately
+        if (typeof navigateTo === 'function' && typeof currentPage === 'string') {
+          try { navigateTo(currentPage); } catch(e) {}
+        }
+
         msg('Extracted ' + keys.length + ' fields: ' + keys.join(', '), 'ok');
       } else {
         msg('Saved file but no structured data extracted', 'warn');
